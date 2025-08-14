@@ -1091,10 +1091,54 @@
 
   // ===== Portals =====
   const portalGrid=qs('#portalGrid');
+  const portalCanvas=qs('#portalCanvas');
+  const portalCtx=portalCanvas.getContext('2d');
+  let portalSceneObjs=[];
+  let offsetX=0, offsetY=0, scale=1;
+
+  function renderPortalScene(){
+    portalCanvas.width=portalCanvas.clientWidth;
+    portalCanvas.height=portalCanvas.clientHeight;
+    portalSceneObjs=(state.portals||[]).map(p=>{
+      const obj={
+        x:Math.random()*portalCanvas.width,
+        y:Math.random()*portalCanvas.height,
+        r:20+Math.random()*30,
+        color:`hsl(${Math.random()*360},70%,60%)`,
+        cover:null
+      };
+      if(p.cover){
+        const img=new Image();
+        img.src=p.cover;
+        obj.cover=img;
+      }
+      return obj;
+    });
+    function draw(){
+      portalCtx.clearRect(0,0,portalCanvas.width,portalCanvas.height);
+      portalCtx.save();
+      portalCtx.translate(offsetX,offsetY);
+      portalCtx.scale(scale,scale);
+      portalSceneObjs.forEach(o=>{
+        if(o.cover && o.cover.complete){
+          portalCtx.drawImage(o.cover,o.x-o.r,o.y-o.r,o.r*2,o.r*2);
+        }else{
+          portalCtx.fillStyle=o.color;
+          portalCtx.beginPath();
+          portalCtx.arc(o.x,o.y,o.r,0,Math.PI*2);
+          portalCtx.fill();
+        }
+      });
+      portalCtx.restore();
+      requestAnimationFrame(draw);
+    }
+    requestAnimationFrame(draw);
+  }
+
   function renderPortals(){
     portalGrid.innerHTML='';
     // Create tile always first
-    const creator=document.createElement('div'); 
+    const creator=document.createElement('div');
     creator.className='portal-card';
     creator.innerHTML='<div class="portal-circle add" id="addPortal"></div><div class="portal-name">Create Portal</div>';
     portalGrid.appendChild(creator);
@@ -1139,6 +1183,7 @@
     });
 
     qs('#portalEmpty').style.display = (state.portals||[]).length? 'none' : 'grid';
+    renderPortalScene();
   }
 
   // Create Portal Modal
