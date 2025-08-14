@@ -1310,11 +1310,15 @@ if (
     for(let l=0;l<layers;l++){
       const count=80*(l+1);
       const layer=[];
+      const depth=(l+1)/layers;
       for(let i=0;i<count;i++){
         layer.push({
           x:Math.random()*starCanvas.width,
           y:Math.random()*starCanvas.height,
-          size:Math.random()*2+0.5
+          size:Math.random()*2+0.5,
+          vx:(Math.random()-0.5)*0.05,
+          vy:(Math.random()-0.5)*0.05,
+          alpha:1-depth*0.5
         });
       }
       starLayers.push(layer);
@@ -1329,6 +1333,11 @@ if (
       starCtx.save();
       starCtx.translate((offsetX+tiltX*20)*parallax,(offsetY+tiltY*20)*parallax);
       layer.forEach(star=>{
+        star.x+=star.vx*depth;
+        star.y+=star.vy*depth;
+        star.x=(star.x+starCanvas.width)%starCanvas.width;
+        star.y=(star.y+starCanvas.height)%starCanvas.height;
+        starCtx.globalAlpha=star.alpha;
         starCtx.fillStyle='#fff';
         starCtx.fillRect(star.x,star.y,star.size,star.size);
       });
