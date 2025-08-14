@@ -1353,11 +1353,13 @@ if (
 const loadPromises = [];
 
     portalSceneObjs=(state.portals||[]).map(p=>{
-      const orbitRadius=40+Math.random()*60;
-      const angle=Math.random()*Math.PI*2;
-      const cx=Math.random()*portalCanvas.width;
-      const cy=Math.random()*portalCanvas.height;
-      const obj={
+      const base = Math.min(portalCanvas.width, portalCanvas.height) / dpr;
+      const r = base * 0.06 + Math.random() * base * 0.06;
+      const orbitRadius = r * (2 + Math.random());
+      const angle = Math.random() * Math.PI * 2;
+      const cx = Math.random() * portalCanvas.width;
+      const cy = Math.random() * portalCanvas.height;
+      const obj = {
         cx,
         cy,
         angle,
@@ -1365,7 +1367,7 @@ const loadPromises = [];
         vx:(Math.random()-0.5)*0.5,
         vy:(Math.random()-0.5)*0.5,
         angVel:(Math.random()-0.5)*0.01,
-        r:20+Math.random()*30,
+        r,
         color:`hsl(${Math.random()*360},70%,60%)`,
 texture: null,
 cover: null,
