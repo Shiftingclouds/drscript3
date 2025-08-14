@@ -1180,9 +1180,15 @@
     scale=Math.min(5,Math.max(0.2,scale));
   },{passive:false});
 
-  function renderPortalScene(){
-    portalCanvas.width=portalCanvas.clientWidth;
-    portalCanvas.height=portalCanvas.clientHeight;
+  function resizePortalCanvas(){
+    portalCanvas.width=window.innerWidth;
+    portalCanvas.height=window.innerHeight;
+  }
+
+  window.addEventListener('resize',resizePortalCanvas);
+
+  async function renderPortalScene(){
+    resizePortalCanvas();
     portalSceneObjs=(state.portals||[]).map(p=>{
       const obj={
         x:Math.random()*portalCanvas.width,
@@ -1193,18 +1199,25 @@
       };
       if(p.cover){
         const img=new Image();
-        img.src=p.cover;
         obj.cover=img;
+        img.src=p.cover;
       }
       return obj;
     });
+
+    const loadPromises=portalSceneObjs.filter(o=>o.cover).map(o=>new Promise(res=>{
+      if(o.cover.complete) res(); else { o.cover.onload=o.cover.onerror=res; }
+    }));
+
+    await Promise.all(loadPromises);
+
     function draw(){
       portalCtx.clearRect(0,0,portalCanvas.width,portalCanvas.height);
       portalCtx.save();
       portalCtx.translate(offsetX,offsetY);
       portalCtx.scale(scale,scale);
       portalSceneObjs.forEach(o=>{
-        if(o.cover && o.cover.complete){
+        if(o.cover){
           portalCtx.drawImage(o.cover,o.x-o.r,o.y-o.r,o.r*2,o.r*2);
         }else{
           portalCtx.fillStyle=o.color;
