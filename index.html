@@ -4128,6 +4128,7 @@ portalCtx.restore(); // end circular clip
   tryParseImplicitToken();
   initStarfield();
   requestAnimationFrame(drawStarfield);
+  renderPortalScene();
   // Delay heavy initialization until the user enters the app
   qs('#enterApp').addEventListener('click', () => {
     const launch = qs('#launchScene');
@@ -4139,7 +4140,6 @@ portalCtx.restore(); // end circular clip
       // Use idle callback when available to keep the UI responsive
       (window.requestIdleCallback || requestAnimationFrame)(() => {
         renderAll();
-        renderPortalScene();
         attachSettingsHandlers();
         setupAutoSync();
       });
