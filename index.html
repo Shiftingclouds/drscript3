@@ -1481,28 +1481,28 @@ if (img) {
 portalCtx.restore(); // end circular clip
 
         // soften edges into background
-        const fade=portalCtx.createRadialGradient(o.x,o.y,o.r*0.8,o.x,o.y,o.r);
-        fade.addColorStop(0,'rgba(0,0,0,0)');
-        fade.addColorStop(1,'rgba(0,0,0,1)');
-        portalCtx.globalCompositeOperation='destination-out';
-        portalCtx.fillStyle=fade;
-        portalCtx.beginPath();
-        portalCtx.arc(o.x,o.y,o.r,0,Math.PI*2);
-        portalCtx.fill();
-        portalCtx.globalCompositeOperation='source-over';
-        portalCtx.restore();
+          const fade=portalCtx.createRadialGradient(o.x,o.y,o.r*0.8,o.x,o.y,o.r);
+          fade.addColorStop(0,'rgba(0,0,0,0)');
+          fade.addColorStop(1,'rgba(0,0,0,1)');
+          portalCtx.globalCompositeOperation='destination-out';
+          portalCtx.fillStyle=fade;
+          portalCtx.beginPath();
+          portalCtx.arc(o.x,o.y,o.r,0,Math.PI*2);
+          portalCtx.fill();
+          portalCtx.globalCompositeOperation='source-over';
 
-        // outer glow
-        portalCtx.save();
-        portalCtx.shadowColor='rgba(255,255,255,0.6)';
-        portalCtx.shadowBlur=15;
-        portalCtx.beginPath();
-        portalCtx.arc(o.x,o.y,o.r,0,Math.PI*2);
-        portalCtx.strokeStyle='rgba(255,255,255,0.2)';
-        portalCtx.lineWidth=2;
-        portalCtx.stroke();
-        portalCtx.restore();
+          // outer glow
+          portalCtx.save();
+          portalCtx.shadowColor='rgba(255,255,255,0.6)';
+          portalCtx.shadowBlur=15;
+          portalCtx.beginPath();
+          portalCtx.arc(o.x,o.y,o.r,0,Math.PI*2);
+          portalCtx.strokeStyle='rgba(255,255,255,0.2)';
+          portalCtx.lineWidth=2;
+          portalCtx.stroke();
+          portalCtx.restore();
       });
+      portalCtx.restore();
       requestAnimationFrame(draw);
     }
     requestAnimationFrame(draw);
