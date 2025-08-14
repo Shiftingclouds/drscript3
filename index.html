@@ -1175,6 +1175,8 @@ let tiltX = 0, tiltY = 0;
   let startMidX=0, startMidY=0;
   let startOffsetX=0, startOffsetY=0;
   let dragMoved=false;
+  let draggedPortal=null;
+  let dragPointerId=null;
 
   portalCanvas.addEventListener('pointerdown',e=>{
     activePointers.set(e.pointerId,e);
@@ -1182,8 +1184,37 @@ let tiltX = 0, tiltY = 0;
       dragMoved=false;
       lastX=e.clientX;
       lastY=e.clientY;
-// Right-click pans; left/middle drag objects
+// Right-click pans; left/middle drag/nudge objects in the portal preview
 isPanning = (e.button === 2);
+
+if (!isPanning) {
+  const rect = portalCanvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left - offsetX) / scale;
+  const y = (e.clientY - rect.top - offsetY) / scale;
+
+  // Pick a nearby portal to interact with
+  draggedPortal = portalSceneObjs.find(o => Math.hypot(o.x - x, o.y - y) < o.r * 2) || null;
+  dragPointerId = draggedPortal ? e.pointerId : null;
+
+  if (draggedPortal) {
+    // Subtle impulse so it feels responsive/alive
+    draggedPortal.vx     += (Math.random() - 0.5) * 2;
+    draggedPortal.vy     += (Math.random() - 0.5) * 2;
+    draggedPortal.angVel += (Math.random() - 0.5) * 0.05;
+    draggedPortal.angle  += (Math.random() - 0.5) * 0.5;
+    draggedPortal.orbitRadius *= 1 + (Math.random() - 0.5) * 0.1;
+    draggedPortal.cx     += (Math.random() - 0.5) * 10;
+    draggedPortal.cy     += (Math.random() - 0.5) * 10;
+
+    // Ensure we keep getting move/up events for smooth dragging
+    if (portalCanvas.setPointerCapture) {
+      try { portalCanvas.setPointerCapture(e.pointerId); } catch {}
+    }
+  }
+} else {
+  draggedPortal = null;
+  dragPointerId = null;
+}
 
     }else if(activePointers.size===2){
       const [p1,p2]=Array.from(activePointers.values());
@@ -1209,16 +1240,9 @@ isPanning = (e.button === 2);
       if(isPanning){
         offsetX+=dx;
         offsetY+=dy;
-      }else{
-        const rect=portalCanvas.getBoundingClientRect();
-        const x=(e.clientX-rect.left-offsetX)/scale;
-        const y=(e.clientY-rect.top-offsetY)/scale;
-        portalSceneObjs.forEach(o=>{
-          if(Math.hypot(o.x-x,o.y-y)<o.r*2){
-            o.vx+=(dx/scale)*0.2;
-            o.vy+=(dy/scale)*0.2;
-          }
-        });
+      }else if(draggedPortal && e.pointerId===dragPointerId){
+        draggedPortal.vx += (dx/scale)*0.05;
+        draggedPortal.vy += (dy/scale)*0.05;
       }
       lastX=e.clientX;
       lastY=e.clientY;
@@ -1254,6 +1278,10 @@ if (
       });
     }
     activePointers.delete(e.pointerId);
+    if(e.pointerId===dragPointerId){
+      draggedPortal=null;
+      dragPointerId=null;
+    }
     if(activePointers.size===0){
       isPanning=false;
       startPinchDist=0;
