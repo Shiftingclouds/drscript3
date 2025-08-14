@@ -1,0 +1,3489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DR Script Builder</title>
+<style>
+  :root{
+    --bg-primary:#0f0f10;
+    --bg-elev:#16171a;
+    --bg-card:#1b1d22;
+    --ink:#e7e7ea;
+    --muted:#a7aab3;
+    --faint:#7b7f88;
+    --accent:#7c6cff;
+    --accent-2:#8b5cf6;
+    --border:#2a2d33;
+    --radius:16px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0; color:var(--ink); background:radial-gradient(1200px 800px at 10% -10%, rgba(124,108,255,.08), transparent 55%), radial-gradient(900px 700px at 110% 20%, rgba(139,92,246,.06), transparent 60%), var(--bg-primary); font:400 16px/1.6 Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial}
+
+  .app{display:grid; grid-template-columns:280px 1fr; min-height:100vh}
+
+  /* Sidebar */
+  .side{background:linear-gradient(180deg, var(--bg-elev), var(--bg-primary)); border-right:1px solid var(--border); padding:22px 16px; position:sticky; top:0; height:100vh; overflow:auto}
+  .brand{display:flex; gap:12px; align-items:center; padding:6px 8px 18px}
+  .brand .logo{width:28px; height:28px; display:grid; place-items:center; border-radius:10px; background:linear-gradient(145deg, var(--accent), var(--accent-2))}
+  .brand h1{margin:0; font-size:22px; line-height:1.2}
+  .brand small{display:block; color:var(--faint); font-size:12px; margin-top:4px}
+  .nav-section{color:var(--faint); font-weight:600; font-size:12px; margin:18px 10px 8px}
+  .nav{display:flex; flex-direction:column; gap:8px}
+  .nav button{appearance:none; background:transparent; border:1px solid transparent; color:var(--ink); width:100%; text-align:left; border-radius:12px; padding:12px 14px; display:flex; gap:12px; align-items:center; cursor:pointer}
+  .nav button.active{background:#17181c; border-color:var(--border)}
+  .nav button:hover{background:#15161a}
+
+  /* Main */
+  .main{padding:28px 28px 80px; overflow:auto}
+  h2.title{font-size:36px; margin:0 0 14px}
+
+  .btn{--bg:#20222a; --bd:var(--border); --tx:var(--ink); background:linear-gradient(180deg, var(--bg), #16181e); border:1px solid var(--bd); color:var(--tx); padding:10px 14px; border-radius:12px; cursor:pointer; font-weight:600; display:inline-flex; align-items:center; gap:10px}
+  .btn:hover{filter:brightness(1.06)}
+  .btn.primary{--bg:linear-gradient(180deg, #5046ff, #4a3df2); --bd:#5a50ff}
+  .btn.ghost{background:transparent}
+  .btn.small{padding:6px 10px; font-size:13px}
+
+  /* Portals */
+  .portal-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:20px; margin-top:16px}
+  .portal-card{display:grid; gap:10px; justify-items:center}
+  .portal-circle{width:160px; height:160px; border-radius:50%; border:1px solid var(--border); background:#121318 center/cover no-repeat; display:grid; place-items:center; color:var(--ink); font-weight:700}
+  .portal-circle.add{border:2px dashed var(--border)}
+  .portal-circle.add::after{content:'+'; font-size:40px; opacity:.85}
+  .portal-name{text-align:center; font-weight:600}
+  .portal-actions{display:flex; gap:6px}
+
+  /* Waiting Rooms */
+  .wr-grid{display:grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap:20px; margin-top:10px}
+  .wr-card{display:grid; gap:8px}
+  .wr-thumb{width:180px; height:180px; border-radius:18px; border:1px solid var(--border); background:#15171a center/cover no-repeat; position:relative; display:grid; place-items:center; color:var(--ink); font-weight:700; font-size:18px; text-align:center}
+  .wr-thumb .badge{position:absolute; top:8px; right:8px; background:#0008; color:#fff; font-size:11px; padding:4px 6px; border-radius:8px}
+  .wr-thumb.new{border:2px dashed var(--border);} .wr-thumb.new::after{content:'+'; font-size:38px; opacity:.85}
+  .wr-label{text-align:center; font-weight:600}
+  .wr-actions{display:flex; gap:6px; justify-content:center}
+  .modal-grid.wr{grid-template-columns:120px 1fr}
+  .wr-thumb.edit{cursor:pointer}
+
+  /* Playlists */
+  .pl-grid{display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:20px; margin-top:10px}
+  .pl-card{display:grid; gap:8px}
+  .pl-thumb{width:200px; height:140px; border-radius:14px; border:1px solid var(--border); background:#15171a center/cover no-repeat; position:relative; display:grid; place-items:center; color:var(--ink); font-weight:700; text-align:center}
+  .pl-thumb.new{border:2px dashed var(--border);} .pl-thumb.new::after{content:'+'; font-size:36px; opacity:.85}
+  .pl-label{text-align:center; font-weight:600}
+  .track-list{border:1px solid var(--border); border-radius:12px; padding:8px; display:grid; gap:8px; max-height:220px; overflow:auto; background:#0f1116}
+  .track{display:grid; grid-template-columns:1fr auto auto; gap:8px; align-items:center; padding:8px; border:1px solid var(--border); border-radius:10px; background:#14161b}
+  .track a{color:#cfd1ff; text-decoration:none}
+
+  /* Journal */
+  .journal-toolbar{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:10px 0}
+  .tagbar{display:flex; gap:8px; flex-wrap:wrap}
+  .tag{padding:6px 10px; border:1px solid var(--border); border-radius:999px; cursor:pointer; font-size:12px; background:#15171a}
+  .tag.active{outline:2px solid #4f46e5}
+  .journal-list{display:grid; gap:12px; margin-top:10px}
+  .entry{background:#17191f; border:1px solid var(--border); border-radius:14px; padding:14px}
+  .entry h4{margin:0 0 6px}
+  .entry .meta{color:var(--faint); font-size:12px; display:flex; gap:10px; align-items:center}
+  .entry .tags{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px}
+
+  /* Inputs */
+  .field{margin-bottom:16px}
+  .label{display:block; color:var(--muted); font-size:12px; margin-bottom:6px}
+  .text, .textarea, select{width:100%; background:#0f1116; color:var(--ink); border:1px solid var(--border); border-radius:10px; padding:10px 12px}
+  .textarea{min-height:130px; resize:vertical}
+
+  /* RTE */
+  .rte{background:#0f1116; border:1px solid var(--border); border-radius:12px; overflow:hidden}
+  .rte .rtebar{display:flex; gap:6px; padding:8px; border-bottom:1px solid var(--border); background:#12141a}
+  .rte .rtebar button{background:#171920; border:1px solid var(--border); color:var(--ink); padding:6px 8px; border-radius:8px; cursor:pointer}
+  .rte .rtebar input[type="file"]{display:none}
+  .rte .area{min-height:240px; padding:14px; outline:none}
+  .rte .area img{max-width:100%; border-radius:10px; border:1px solid var(--border)}
+
+  /* Drawer + Modals */
+  .drawer{position:fixed; inset:auto 0 0 0; height:78vh; background:linear-gradient(180deg, #131419, #111217); border-top:1px solid var(--border); box-shadow:0 -18px 40px rgba(0,0,0,.45); translate:0 110%; transition:.25s ease}
+  .drawer.open{translate:0 0}
+  .drawer .sections{border-right:1px solid var(--border); padding:16px; overflow:auto}
+  .drawer .editor{padding:18px; overflow:auto}
+
+  .modal{position:fixed; inset:0; display:none; place-items:center; background:rgba(0,0,0,.4); z-index:100}
+  .modal.open{display:grid}
+  .modal-card{background:#14161b; border:1px solid var(--border); border-radius:16px; padding:18px; width:min(560px,95vw)}
+  .modal-grid{display:grid; grid-template-columns:1fr 2fr; gap:14px}
+
+  /* Lightbox needs higher z-index than regular modals */
+  #lightbox{z-index:200}
+  
+  /* Confirm modal needs highest z-index to appear above lightbox */
+  #confirmModal{z-index:300}
+
+  .empty{border:1px dashed var(--border); color:var(--muted); border-radius:16px; padding:32px; display:grid; place-items:center}
+  .actions{display:flex; gap:8px; justify-content:flex-end; margin-top:12px}
+
+  /* Lucid Dreaming Styles */
+  .lucid-toolbar{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:10px 0}
+  .tab-btn{background:var(--bg-elev); border:1px solid var(--border); color:var(--ink); padding:8px 16px; border-radius:8px; cursor:pointer; font-size:14px; transition:.2s ease}
+  .tab-btn.active{background:var(--accent); color:#fff; border-color:var(--accent)}
+  .tab-btn:hover{border-color:var(--accent)}
+  .tab-content{margin-top:16px}
+  .progress-card{background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:16px}
+  .progress-card h3{margin:0 0 12px; color:var(--ink)}
+  .stat-display{margin-bottom:12px}
+  .stat-number{font-size:24px; font-weight:700; color:var(--accent); display:block}
+  .stat-label{color:var(--muted); font-size:12px}
+  .mini-chart{height:60px; background:var(--bg-elev); border-radius:8px; display:flex; align-items:end; gap:2px; padding:4px}
+  .chart-bar{background:var(--accent); border-radius:2px; min-height:4px; flex:1; opacity:.7; transition:.2s ease}
+  .chart-bar:hover{opacity:1}
+  .goals-list{display:grid; gap:8px}
+  .goal-item{background:var(--bg-elev); border:1px solid var(--border); border-radius:8px; padding:12px; display:flex; justify-content:space-between; align-items:center}
+  .goal-item.completed{opacity:.7; text-decoration:line-through}
+  .goal-actions{display:flex; gap:6px}
+  .technique-card{background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:16px}
+  .technique-card h4{margin:0 0 8px; color:var(--ink)}
+  .technique-rating{display:flex; gap:4px; margin:8px 0}
+  .star{color:var(--muted); cursor:pointer; font-size:16px; transition:.2s ease}
+  .star.filled{color:#ffd700}
+  .dream-entry{background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:12px}
+  .dream-header{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px}
+  .dream-meta{display:flex; flex-direction:column; gap:4px}
+  .dream-badges{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px}
+  .dream-badge{padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600}
+  .dream-badge.lucid{background:rgba(124,108,255,.2); color:var(--accent)}
+  .dream-badge.semi{background:rgba(139,92,246,.2); color:var(--accent-2)}
+  .dream-badge.normal{background:rgba(123,127,136,.2); color:var(--muted)}
+  .dream-badge.nightmare{background:rgba(239,68,68,.2); color:#ef4444}
+  .projection-entry{background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:12px}
+  .projection-header{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px}
+  .projection-meta{display:flex; flex-direction:column; gap:4px}
+  .projection-badges{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px}
+  .projection-badge{padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600}
+  .projection-badge.full{background:rgba(124,108,255,.2); color:var(--accent)}
+  .projection-badge.partial{background:rgba(139,92,246,.2); color:var(--accent-2)}
+  .projection-badge.vibrations{background:rgba(34,197,94,.2); color:#22c55e}
+  .projection-badge.failed{background:rgba(239,68,68,.2); color:#ef4444}
+  .location-btn{background:var(--bg-elev); border:1px solid var(--border); color:var(--muted); padding:4px 8px; border-radius:6px; cursor:pointer; font-size:12px; transition:.2s ease}
+  .location-btn.active{background:var(--accent); color:#fff; border-color:var(--accent)}
+  .location-btn:hover{border-color:var(--accent)}
+  .goals-summary{display:grid; gap:4px; font-size:12px}
+  .goals-summary-item{display:flex; justify-content:space-between; color:var(--muted)}
+  .emotion-btn, .rc-btn{background:var(--bg-elev); border:1px solid var(--border); color:var(--muted); padding:4px 8px; border-radius:6px; cursor:pointer; font-size:12px; transition:.2s ease}
+  .emotion-btn.active, .rc-btn.active{background:var(--accent); color:#fff; border-color:var(--accent)}
+  .emotion-btn.hover, .rc-btn:hover{border-color:var(--accent)}
+  .journal-tag{padding:4px 8px; border:1px solid var(--border); border-radius:12px; font-size:11px; background:#15171a}
+
+  @media (max-width: 920px){ .app{grid-template-columns:74px 1fr} .brand h1, .brand small{display:none} .nav button span{display:none} }
+
+  /* Visualizers */
+  .viz-toolbar{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:10px 0}
+  .viz-group{margin:18px 0}
+  .viz-group h3{margin:0 0 10px; font-size:18px; color:var(--muted)}
+  .viz-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr)); gap:12px}
+  .viz-thumb{position:relative; width:100%; padding-top:100%; border:1px solid var(--border); border-radius:14px; background:#111317 center/cover no-repeat; cursor:pointer; overflow:hidden}
+  .viz-thumb .cap{position:absolute; inset:auto 0 0 0; padding:6px 8px; background:linear-gradient(180deg, transparent, rgba(0,0,0,.55)); font-size:12px}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <div class="logo">✨</div>
+      <div>
+        <h1>DR Script Builder</h1>
+        <small>Reality Shifting Companion</small>
+      </div>
+    </div>
+
+    <div class="nav-section">MAIN</div>
+    <div class="nav">
+      <button data-view="portals" class="active">🌟 <span>My Portals</span></button>
+      <button data-view="journal">📖 <span>Journal</span></button>
+      <button data-view="playlists">🎵 <span>Playlists</span></button>
+      <button data-view="visualizers">🖼️ <span>Visualizers</span></button>
+    </div>
+
+    <div class="nav-section">SPECIAL</div>
+    <div class="nav">
+      <button data-view="waiting">⏳ <span>Waiting Rooms</span></button>
+      <button data-view="lucid">🌙 <span>Lucid Dreaming</span></button>
+      <button data-view="astral">✨ <span>Astral Projection</span></button>
+    </div>
+
+    <div class="nav-section" style="margin-top:22px">SYSTEM</div>
+    <div class="nav">
+      <button data-view="settings">⚙️ <span>Settings</span></button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <!-- Portals View -->
+    <section id="portals-view" class="view">
+      <h2 class="title">My DR Portals</h2>
+      <p style="color:var(--muted); margin:-4px 0 14px">Create and manage your portals to different realities</p>
+      <div id="portalGrid" class="portal-grid"></div>
+      <div id="portalEmpty" class="empty" style="display:none">Create your first portal to begin ✨</div>
+    </section>
+
+    <!-- Journal View -->
+    <section id="journal-view" class="view" hidden>
+      <h2 class="title">Journal</h2>
+      <div class="toolbar"><button class="btn primary" id="newEntry">＋ New Entry</button></div>
+      <div class="journal-toolbar">
+        <input id="jSearch" class="text" placeholder="Search journal..." style="min-width:220px" />
+        <select id="jSort" class="text" style="max-width:200px">
+          <option value="date_desc">Newest first</option>
+          <option value="date_asc">Oldest first</option>
+          <option value="title_asc">Title A→Z</option>
+          <option value="title_desc">Title Z→A</option>
+        </select>
+        <select id="jPortalFilter" class="text" style="max-width:240px"><option value="">All portals</option></select>
+        <div id="jTagBar" class="tagbar"></div>
+      </div>
+      <div id="journalList" class="journal-list"></div>
+      <div id="journalEmpty" class="empty" style="display:none">No entries yet</div>
+    </section>
+
+    <!-- Playlists View -->
+    <section id="playlists-view" class="view" hidden>
+      <h2 class="title">Playlists</h2>
+      <div class="journal-toolbar">
+        <input id="plSearch" class="text" placeholder="Search playlists or tracks..." style="min-width:240px"/>
+        <select id="plPortalFilter" class="text" style="max-width:240px"><option value="">All portals</option></select>
+      </div>
+      <div id="plGrid" class="pl-grid"></div>
+      <div id="plEmpty" class="empty" style="display:none">No playlists yet</div>
+    </section>
+
+    <!-- Visualizers View -->
+    <section id="visualizers-view" class="view" hidden>
+      <h2 class="title">Visualizers</h2>
+      <p style="color:var(--muted); margin:-4px 0 14px">Browse all images by portal. Click a thumbnail to view full-size.</p>
+      <div class="viz-toolbar">
+        <button class="btn primary" id="vizUploadBtn">＋ Upload Images</button>
+        <input id="vizSearch" class="text" placeholder="Search by name or tag..." style="min-width:240px"/>
+        <select id="vizPortalFilter" class="text" style="max-width:240px"><option value="">All portals</option></select>
+      </div>
+      <div id="vizTagBar" class="tagbar"></div>
+      <div id="vizContainer"></div>
+      <div id="vizEmpty" class="empty" style="display:none">No images found</div>
+    </section>
+
+    <!-- Waiting Rooms -->
+    <section id="waiting-view" class="view" hidden>
+      <h2 class="title">Waiting Rooms</h2>
+      <p style="color:var(--muted); margin:-4px 0 14px">Create calming spaces and link them to portals.</p>
+      <div id="wrGrid" class="wr-grid"></div>
+    </section>
+
+    <!-- Lucid Dreaming View -->
+    <section id="lucid-view" class="view" hidden>
+      <h2 class="title">Lucid Dreaming</h2>
+      <p style="color:var(--muted); margin:-4px 0 14px">Track your lucid dreams, set goals, and monitor your progress</p>
+      
+      <div class="lucid-tabs" style="display:flex; gap:8px; margin:16px 0; border-bottom:1px solid var(--border); padding-bottom:8px">
+        <button class="tab-btn active" data-tab="dreams">🌙 Dream Journal</button>
+        <button class="tab-btn" data-tab="goals">🎯 Goals & Tasks</button>
+        <button class="tab-btn" data-tab="techniques">⚡ Techniques</button>
+        <button class="tab-btn" data-tab="progress">📊 Progress</button>
+      </div>
+
+      <!-- Dream Journal Tab -->
+      <div id="dreams-tab" class="tab-content">
+        <div class="toolbar">
+          <button class="btn primary" id="newDream">＋ New Dream</button>
+          <button class="btn" id="exportDreams">⬇ Export Dreams</button>
+        </div>
+        <div class="lucid-toolbar">
+          <input id="dreamSearch" class="text" placeholder="Search dreams..." style="min-width:220px"/>
+          <select id="dreamSort" class="text" style="max-width:200px">
+            <option value="date_desc">Newest first</option>
+            <option value="date_asc">Oldest first</option>
+            <option value="lucidity_desc">Most lucid first</option>
+            <option value="vividness_desc">Most vivid first</option>
+          </select>
+          <select id="dreamLucidFilter" class="text" style="max-width:200px">
+            <option value="">All dreams</option>
+            <option value="lucid">Lucid only</option>
+            <option value="semi">Semi-lucid</option>
+            <option value="normal">Normal dreams</option>
+          </select>
+        </div>
+        <div id="dreamList" class="journal-list"></div>
+        <div id="dreamEmpty" class="empty" style="display:none">No dreams recorded yet</div>
+      </div>
+
+      <!-- Goals & Tasks Tab -->
+      <div id="goals-tab" class="tab-content" hidden>
+        <div class="toolbar">
+          <button class="btn primary" id="newGoal">＋ New Goal</button>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:16px">
+          <div>
+            <h3 style="margin:0 0 12px">Active Goals</h3>
+            <div id="activeGoals" class="goals-list"></div>
+          </div>
+          <div>
+            <h3 style="margin:0 0 12px">Completed Goals</h3>
+            <div id="completedGoals" class="goals-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Techniques Tab -->
+      <div id="techniques-tab" class="tab-content" hidden>
+        <div class="toolbar">
+          <button class="btn primary" id="newTechnique">＋ Add Technique</button>
+        </div>
+        <div id="techniquesList" style="display:grid; gap:16px; margin-top:16px"></div>
+      </div>
+
+      <!-- Progress Tab -->
+      <div id="progress-tab" class="tab-content" hidden>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:20px; margin-top:16px">
+          <div class="progress-card">
+            <h3>Dream Recall</h3>
+            <div class="stat-display">
+              <span id="recallRate" class="stat-number">0%</span>
+              <span class="stat-label">Last 30 days</span>
+            </div>
+            <div id="recallChart" class="mini-chart"></div>
+          </div>
+          <div class="progress-card">
+            <h3>Lucidity Rate</h3>
+            <div class="stat-display">
+              <span id="lucidityRate" class="stat-number">0%</span>
+              <span class="stat-label">Last 30 days</span>
+            </div>
+            <div id="lucidityChart" class="mini-chart"></div>
+          </div>
+          <div class="progress-card">
+            <h3>Goals Achieved</h3>
+            <div class="stat-display">
+              <span id="goalsAchieved" class="stat-number">0</span>
+              <span class="stat-label">Total completed</span>
+            </div>
+            <div id="goalsProgress" class="goals-summary"></div>
+          </div>
+          <div class="progress-card">
+            <h3>Dream Frequency</h3>
+            <div class="stat-display">
+              <span id="dreamFreq" class="stat-number">0</span>
+              <span class="stat-label">Dreams per week</span>
+            </div>
+            <div id="frequencyChart" class="mini-chart"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Astral Projection View -->
+    <section id="astral-view" class="view" hidden>
+      <h2 class="title">Astral Projection</h2>
+      <p style="color:var(--muted); margin:-4px 0 14px">Track your out-of-body experiences, set projection goals, and monitor your progress</p>
+      
+      <div class="lucid-tabs" style="display:flex; gap:8px; margin:16px 0; border-bottom:1px solid var(--border); padding-bottom:8px">
+        <button class="tab-btn active" data-tab="projections">✨ Projection Journal</button>
+        <button class="tab-btn" data-tab="astral-goals">🎯 Goals & Tasks</button>
+        <button class="tab-btn" data-tab="astral-techniques">⚡ Techniques</button>
+        <button class="tab-btn" data-tab="astral-progress">📊 Progress</button>
+      </div>
+
+      <!-- Projection Journal Tab -->
+      <div id="projections-tab" class="tab-content">
+        <div class="toolbar">
+          <button class="btn primary" id="newProjection">＋ New Projection</button>
+          <button class="btn" id="exportProjections">⬇ Export Projections</button>
+        </div>
+        <div class="lucid-toolbar">
+          <input id="projectionSearch" class="text" placeholder="Search projections..." style="min-width:220px"/>
+          <select id="projectionSort" class="text" style="max-width:200px">
+            <option value="date_desc">Newest first</option>
+            <option value="date_asc">Oldest first</option>
+            <option value="clarity_desc">Most clear first</option>
+            <option value="duration_desc">Longest first</option>
+          </select>
+          <select id="projectionTypeFilter" class="text" style="max-width:200px">
+            <option value="">All experiences</option>
+            <option value="full">Full Projection</option>
+            <option value="partial">Partial Projection</option>
+            <option value="vibrations">Vibrations Only</option>
+            <option value="failed">Failed Attempt</option>
+          </select>
+        </div>
+        <div id="projectionList" class="journal-list"></div>
+        <div id="projectionEmpty" class="empty" style="display:none">No projections recorded yet</div>
+      </div>
+
+      <!-- Goals & Tasks Tab -->
+      <div id="astral-goals-tab" class="tab-content" hidden>
+        <div class="toolbar">
+          <button class="btn primary" id="newAstralGoal">＋ New Goal</button>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:16px">
+          <div>
+            <h3 style="margin:0 0 12px">Active Goals</h3>
+            <div id="activeAstralGoals" class="goals-list"></div>
+          </div>
+          <div>
+            <h3 style="margin:0 0 12px">Completed Goals</h3>
+            <div id="completedAstralGoals" class="goals-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Techniques Tab -->
+      <div id="astral-techniques-tab" class="tab-content" hidden>
+        <div class="toolbar">
+          <button class="btn primary" id="newAstralTechnique">＋ Add Technique</button>
+        </div>
+        <div id="astralTechniquesList" style="display:grid; gap:16px; margin-top:16px"></div>
+      </div>
+
+      <!-- Progress Tab -->
+      <div id="astral-progress-tab" class="tab-content" hidden>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:20px; margin-top:16px">
+          <div class="progress-card">
+            <h3>Success Rate</h3>
+            <div class="stat-display">
+              <span id="astralSuccessRate" class="stat-number">0%</span>
+              <span class="stat-label">Last 30 days</span>
+            </div>
+            <div id="astralSuccessChart" class="mini-chart"></div>
+          </div>
+          <div class="progress-card">
+            <h3>Average Duration</h3>
+            <div class="stat-display">
+              <span id="astralDuration" class="stat-number">0</span>
+              <span class="stat-label">Minutes per session</span>
+            </div>
+            <div id="astralDurationChart" class="mini-chart"></div>
+          </div>
+          <div class="progress-card">
+            <h3>Goals Achieved</h3>
+            <div class="stat-display">
+              <span id="astralGoalsAchieved" class="stat-number">0</span>
+              <span class="stat-label">Total completed</span>
+            </div>
+            <div id="astralGoalsProgress" class="goals-summary"></div>
+          </div>
+          <div class="progress-card">
+            <h3>Projection Frequency</h3>
+            <div class="stat-display">
+              <span id="astralFreq" class="stat-number">0</span>
+              <span class="stat-label">Attempts per week</span>
+            </div>
+            <div id="astralFrequencyChart" class="mini-chart"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Settings View -->
+    <section id="settings-view" class="view" hidden>
+      <h2 class="title">Settings</h2>
+      <p style="color:var(--muted); margin:-4px 0 14px">Connect Dropbox to sync your data across devices.</p>
+      <div class="field"><label class="label">Dropbox App Key (from your Dropbox App Console)</label><input id="dbxAppKey" class="text" placeholder="paste your App Key"/></div>
+      <div class="field"><label class="label">Access Token (optional – paste a generated token if you prefer not to use OAuth)</label><input id="dbxAccessToken" class="text" placeholder="paste short-lived access token"/></div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:12px 0">
+        <button class="btn" id="dbxConnect">Connect Dropbox (OAuth)</button>
+        <button class="btn" id="dbxSaveToken">Save Token</button>
+        <button class="btn" id="testConnection">Test Connection</button>
+        <button class="btn" id="dbxDisconnect">Disconnect</button>
+      </div>
+      <div class="field"><label class="label">Sync File Path (in your Dropbox)</label><input id="dbxPath" class="text" value="/Apps/DR Script Builder/data.json"/></div>
+      <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap" class="field">
+        <label style="display:flex; gap:8px; align-items:center"><input type="checkbox" id="autoSyncToggle"/> Auto Sync</label>
+        <label style="display:flex; gap:8px; align-items:center">Every <input id="autoSyncMins" class="text" style="width:80px" value="5"/> min</label>
+        <button class="btn" id="syncNow">Sync Now</button>
+        <button class="btn" id="pullNow">Pull from Dropbox</button>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:12px 0" class="field">
+        <button class="btn" id="exportAll">Export All (JSON)</button>
+        <button class="btn" id="importBtn">Import JSON</button>
+        <input id="importFile" type="file" accept="application/json" style="display:none" />
+      </div>
+      <div id="syncStatus" style="color:var(--muted); font-size:13px">Status: Not connected</div>
+      <div style="margin-top:14px; color:var(--faint); font-size:13px">
+        Tip: For OAuth, add the current page URL to your Dropbox App's <em>Redirect URIs</em>. After login, you should return here with a <code>code</code> in the URL.
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Modals -->
+<div class="modal" id="confirmModal" aria-hidden="true">
+  <div class="modal-card" style="max-width:420px">
+    <p id="confirmText" style="margin:6px 0 12px; color:#e7e7ea">Are you sure?</p>
+    <div class="actions"><button class="btn ghost" id="confirmCancel">Cancel</button><button class="btn primary" id="confirmOk">Yes</button></div>
+  </div>
+</div>
+
+<div class="modal" id="portalModal" aria-hidden="true">
+  <div class="modal-card">
+    <h3 style="margin:0 0 8px">Create Portal</h3>
+    <div class="modal-grid">
+      <div style="display:grid; gap:8px; align-content:start">
+        <div id="pCoverPreview" class="portal-circle" style="width:120px; height:120px; border-radius:50%;">IMG</div>
+        <label class="btn small" style="justify-content:center">Upload Image<input id="pCoverInput" type="file" accept="image/*" style="display:none"/></label>
+      </div>
+      <div>
+        <div class="field"><label class="label">Portal Name</label><input id="pNameInput" class="text" placeholder="e.g. Avengers Tower"/></div>
+      </div>
+    </div>
+    <div class="actions" style="margin-top:10px"><button class="btn ghost" id="pCancel">Cancel</button><button class="btn primary" id="pCreate">Create</button></div>
+  </div>
+</div>
+
+<div class="modal" id="wrModal" aria-hidden="true">
+  <div class="modal-card">
+    <h3 id="wrModalTitle" style="margin:0 0 8px">Edit Waiting Room</h3>
+    <div class="modal-grid wr">
+      <div>
+        <div id="wrThumbEdit" class="wr-thumb edit" style="width:120px; height:120px; border-radius:12px">Name</div>
+        <label class="btn small" style="margin-top:8px; justify-content:center">Upload Image<input id="wrImgInput" type="file" accept="image/*" style="display:none"/></label>
+      </div>
+      <div>
+        <div class="field"><label class="label">Name</label><input id="wrName" class="text"/></div>
+        <div class="field"><label class="label">Use as default</label><label style="display:flex; gap:8px; align-items:center"><input type="checkbox" id="wrDefault"/> <span class="muted">New portals link to this by default</span></label></div>
+        <div class="field"><label class="label">Description</label>
+          <div class="rte"><div class="rtebar"><button data-cmd="bold">B</button><button data-cmd="italic"><em>I</em></button><button data-cmd="underline"><u>U</u></button><button data-cmd="insertUnorderedList">• List</button><button data-cmd="insertOrderedList">1. List</button><label class="btn-file" style="background:#171920; border:1px solid var(--border); padding:6px 8px; border-radius:8px; cursor:pointer">🖼 Add Image<input type="file" accept="image/*" data-img="wr"></label></div><div id="wrDesc" class="area" contenteditable="true"></div></div>
+        </div>
+        <div class="field"><label class="label">Affirmations (one per line)</label><textarea id="wrAff" class="textarea"></textarea></div>
+        <div class="field"><label class="label">Pre-shift Checklist</label><div style="display:flex; gap:8px"><input id="wrChecklistItem" class="text" placeholder="Add checklist item"/><button class="btn" id="wrAddItem">Add</button></div><ul id="wrChecklist" style="margin:8px 0 0 18px"></ul></div>
+        <div class="field"><label class="label">Optional timer (minutes)</label><input id="wrTimer" class="text" placeholder="e.g. 10"/></div>
+      </div>
+    </div>
+    <div class="actions"><button class="btn ghost" id="wrCancel">Cancel</button><button class="btn primary" id="wrSave">Save</button></div>
+  </div>
+</div>
+
+<div class="modal" id="journalModal" aria-hidden="true">
+  <div class="modal-card" style="width:min(960px,95vw); max-height:90vh; overflow-y:auto">
+    <h3 id="jModalTitle" style="margin:0 0 10px">New Entry</h3>
+    <div class="modal-grid" style="grid-template-columns:1fr 2fr">
+      <div>
+        <div class="field"><label class="label">Title</label><input id="jTitle" class="text" placeholder="Entry title"/></div>
+        <div class="field"><label class="label">Date</label><input id="jDate" type="datetime-local" class="text"/></div>
+        <div class="field"><label class="label">Portal</label><select id="jPortal" class="text"></select></div>
+        <div class="field"><label class="label">Add Tag(s)</label><input id="jTagsInput" class="text" placeholder="Type and press Enter (or comma)"/></div>
+        <div class="field"><label class="label">Tags</label><div id="jTags" class="tagbar"></div></div>
+      </div>
+      <div>
+        <div class="field"><label class="label">Entry</label><div class="rte"><div class="rtebar"><button data-cmd="bold">B</button><button data-cmd="italic"><em>I</em></button><button data-cmd="underline"><u>U</u></button><button data-cmd="insertUnorderedList">• List</button><button data-cmd="insertOrderedList">1. List</button><label class="btn-file" style="background:#171920; border:1px solid var(--border); padding:6px 8px; border-radius:8px; cursor:pointer">🖼 Add Image<input type="file" accept="image/*" data-img="journal"></label></div><div id="jBody" class="area" contenteditable="true" spellcheck="false" style="max-height:40vh; overflow-y:auto"></div></div></div>
+        <div class="actions"><button class="btn ghost" id="jCancel">Cancel</button><button class="btn primary" id="jSave">Save Entry</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="vizUploadModal" aria-hidden="true">
+  <div class="modal-card" style="width:min(720px,95vw)">
+    <h3 style="margin:0 0 10px">Upload Images</h3>
+    <div class="modal-grid" style="grid-template-columns:1fr 1fr">
+      <div>
+        <div class="field"><label class="label">Select Files</label><input id="vizFiles" class="text" type="file" accept="image/*" multiple/></div>
+        <div class="field"><label class="label">Name prefix (optional)</label><input id="vizName" class="text" placeholder="e.g. Hogwarts_"/></div>
+      </div>
+      <div>
+        <div class="field"><label class="label">Associate to Portal</label><select id="vizPortalSel" class="text"><option value="-1">Unassigned</option></select></div>
+        <div class="field"><label class="label">Tags (comma-separated)</label><input id="vizTagsInput" class="text" placeholder="e.g. castle, night, outfit"/></div>
+      </div>
+    </div>
+    <div class="actions"><button class="btn ghost" id="vizCancel">Cancel</button><button class="btn primary" id="vizSave">Save Images</button></div>
+  </div>
+</div>
+
+<div class="modal" id="lightbox" aria-hidden="true">
+  <div class="modal-card" style="width:min(95vw, 1100px); background:#0b0c10; border-color:#1b1d22">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin:-8px -8px 8px 0">
+      <div id="lbMeta" style="color:var(--muted); font-size:13px"></div>
+      <div style="display:flex; gap:8px">
+        <button class="btn small" id="lbDelete" style="background:var(--danger); border-color:var(--danger)">Delete</button>
+        <button class="btn small" id="lbClose">Close</button>
+      </div>
+    </div>
+    <div style="display:grid; place-items:center; background:#0b0c10; border:1px solid var(--border); border-radius:12px; padding:8px">
+      <img id="lbImg" src="" alt="full" style="max-width:100%; max-height:70vh; border-radius:10px" />
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="plModal" aria-hidden="true">
+  <div class="modal-card" style="width:min(760px,95vw)">
+    <h3 id="plModalTitle" style="margin:0 0 10px">New Playlist</h3>
+    <div class="modal-grid" style="grid-template-columns:160px 1fr">
+      <div style="display:grid; gap:8px; align-content:start">
+        <div id="plCoverPrev" class="pl-thumb" style="width:160px; height:160px; border-radius:14px">Cover</div>
+        <label class="btn small" style="justify-content:center">Upload Cover<input id="plCoverInput" type="file" accept="image/*" style="display:none"/></label>
+      </div>
+      <div>
+        <div class="field"><label class="label">Name</label><input id="plName" class="text" placeholder="e.g. Hogwarts Sleep Vibes"/></div>
+        <div class="field"><label class="label">Linked Portal</label><select id="plPortal" class="text" style="max-width:260px"></select></div>
+        <div class="field"><label class="label">Add Track</label>
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:8px; align-items:center">
+            <input id="trkTitle" class="text" placeholder="Title"/>
+            <input id="trkArtist" class="text" placeholder="Artist"/>
+            <input id="trkUrl" class="text" placeholder="URL (YouTube/Spotify/etc.)"/>
+            <button class="btn" id="trkAdd">Add</button>
+          </div>
+        </div>
+        <div class="field"><label class="label">Tracks</label><div id="trkList" class="track-list"></div></div>
+      </div>
+    </div>
+    <div class="actions"><button class="btn ghost" id="plCancel">Cancel</button><button class="btn primary" id="plSave">Save Playlist</button></div>
+  </div>
+</div>
+
+<!-- Dream Entry Modal -->
+<div class="modal" id="dreamModal" aria-hidden="true">
+  <div class="modal-card" style="width:min(900px,95vw); max-height:90vh; overflow-y:auto">
+    <h3 id="dreamModalTitle" style="margin:0 0 16px">New Dream Entry</h3>
+    <div class="modal-grid" style="grid-template-columns:1fr 1fr">
+      <div>
+        <div class="field"><label class="label">Date & Time</label><input id="dreamDate" type="datetime-local" class="text"/></div>
+        <div class="field"><label class="label">Dream Title (optional)</label><input id="dreamTitle" class="text" placeholder="e.g. Flying over mountains"/></div>
+        <div class="field">
+          <label class="label">Lucidity Level</label>
+          <select id="dreamLucidity" class="text">
+            <option value="normal">Normal Dream</option>
+            <option value="semi">Semi-Lucid</option>
+            <option value="lucid">Fully Lucid</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="label">Vividness (1-10)</label>
+          <input id="dreamVividness" type="range" min="1" max="10" value="5" class="text" style="width:100%"/>
+          <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--muted)">
+            <span>Vague</span><span id="vividnessValue">5</span><span>Crystal Clear</span>
+          </div>
+        </div>
+        <div class="field">
+          <label class="label">Emotions</label>
+          <div style="display:flex; gap:6px; flex-wrap:wrap">
+            <button type="button" class="emotion-btn" data-emotion="joy">😊 Joy</button>
+            <button type="button" class="emotion-btn" data-emotion="fear">😨 Fear</button>
+            <button type="button" class="emotion-btn" data-emotion="wonder">🤩 Wonder</button>
+            <button type="button" class="emotion-btn" data-emotion="confusion">😵 Confusion</button>
+            <button type="button" class="emotion-btn" data-emotion="excitement">🤗 Excitement</button>
+            <button type="button" class="emotion-btn" data-emotion="calm">😌 Calm</button>
+          </div>
+        </div>
+        <div class="field">
+          <label class="label">Dream Tags</label>
+          <input id="dreamTagsInput" class="text" placeholder="flying, lucid, nightmare, etc."/>
+          <div id="dreamTagsDisplay" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px"></div>
+        </div>
+      </div>
+      <div>
+        <div class="field">
+          <label class="label">Dream Description</label>
+          <div class="rte">
+            <div class="rtebar">
+              <button data-cmd="bold">B</button>
+              <button data-cmd="italic"><em>I</em></button>
+              <button data-cmd="underline"><u>U</u></button>
+              <button data-cmd="insertUnorderedList">• List</button>
+              <button data-cmd="insertOrderedList">1. List</button>
+            </div>
+            <div id="dreamDescription" class="area" contenteditable="true" spellcheck="false" style="min-height:200px"></div>
+          </div>
+        </div>
+        <div class="field">
+          <label class="label">Reality Checks Performed</label>
+          <div style="display:flex; gap:6px; flex-wrap:wrap">
+            <button type="button" class="rc-btn" data-rc="hands">👋 Hands</button>
+            <button type="button" class="rc-btn" data-rc="clock">🕐 Clock</button>
+            <button type="button" class="rc-btn" data-rc="text">📖 Text</button>
+            <button type="button" class="rc-btn" data-rc="mirror">🪞 Mirror</button>
+            <button type="button" class="rc-btn" data-rc="nose">👃 Nose Pinch</button>
+          </div>
+        </div>
+        <div class="field">
+          <label class="label">Goals Attempted</label>
+          <select id="dreamGoalsSelect" class="text" multiple style="height:80px">
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn ghost" id="dreamCancel">Cancel</button>
+      <button class="btn primary" id="dreamSave">Save Dream</button>
+    </div>
+  </div>
+</div>
+
+<!-- Goal Modal -->
+<div class="modal" id="goalModal" aria-hidden="true">
+  <div class="modal-card">
+    <h3 id="goalModalTitle" style="margin:0 0 16px">New Lucid Dream Goal</h3>
+    <div class="field"><label class="label">Goal Title</label><input id="goalTitle" class="text" placeholder="e.g. Fly to the moon"/></div>
+    <div class="field">
+      <label class="label">Category</label>
+      <select id="goalCategory" class="text">
+        <option value="exploration">Exploration</option>
+        <option value="flying">Flying</option>
+        <option value="meeting">Meeting Someone</option>
+        <option value="transformation">Transformation</option>
+        <option value="skill">Skill Practice</option>
+        <option value="healing">Healing</option>
+        <option value="creativity">Creativity</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="field"><label class="label">Description</label><textarea id="goalDescription" class="textarea" placeholder="Detailed description of what you want to achieve..."></textarea></div>
+    <div class="field">
+      <label class="label">Difficulty</label>
+      <select id="goalDifficulty" class="text">
+        <option value="easy">Easy</option>
+        <option value="medium">Medium</option>
+        <option value="hard">Hard</option>
+        <option value="expert">Expert</option>
+      </select>
+    </div>
+    <div class="actions">
+      <button class="btn ghost" id="goalCancel">Cancel</button>
+      <button class="btn primary" id="goalSave">Save Goal</button>
+    </div>
+  </div>
+</div>
+
+<!-- Technique Modal -->
+<div class="modal" id="techniqueModal" aria-hidden="true">
+  <div class="modal-card">
+    <h3 id="techniqueModalTitle" style="margin:0 0 16px">Add Technique</h3>
+    <div class="field"><label class="label">Technique Name</label><input id="techniqueName" class="text" placeholder="e.g. WILD, MILD, Reality Checks"/></div>
+    <div class="field">
+      <label class="label">Type</label>
+      <select id="techniqueType" class="text">
+        <option value="induction">Dream Induction</option>
+        <option value="lucidity">Lucidity Trigger</option>
+        <option value="control">Dream Control</option>
+        <option value="recall">Dream Recall</option>
+        <option value="stabilization">Dream Stabilization</option>
+      </select>
+    </div>
+    <div class="field"><label class="label">Description</label><textarea id="techniqueDescription" class="textarea" placeholder="How to perform this technique..."></textarea></div>
+    <div class="field">
+      <label class="label">Your Success Rating (1-5 stars)</label>
+      <div id="techniqueRating" class="technique-rating">
+        <span class="star" data-rating="1">★</span>
+        <span class="star" data-rating="2">★</span>
+        <span class="star" data-rating="3">★</span>
+        <span class="star" data-rating="4">★</span>
+        <span class="star" data-rating="5">★</span>
+      </div>
+    </div>
+    <div class="field"><label class="label">Notes</label><textarea id="techniqueNotes" class="textarea" placeholder="Personal notes, tips, modifications..."></textarea></div>
+    <div class="actions">
+      <button class="btn ghost" id="techniqueCancel">Cancel</button>
+      <button class="btn primary" id="techniqueSave">Save Technique</button>
+    </div>
+  </div>
+</div>
+
+<!-- Astral Projection Entry Modal -->
+<div class="modal" id="projectionModal" aria-hidden="true">
+  <div class="modal-card" style="width:min(900px,95vw); max-height:90vh; overflow-y:auto">
+    <h3 id="projectionModalTitle" style="margin:0 0 16px">New Projection Entry</h3>
+    <div class="modal-grid" style="grid-template-columns:1fr 1fr">
+      <div>
+        <div class="field"><label class="label">Date & Time</label><input id="projectionDate" type="datetime-local" class="text"/></div>
+        <div class="field"><label class="label">Session Title (optional)</label><input id="projectionTitle" class="text" placeholder="e.g. Visited the astral library"/></div>
+        <div class="field">
+          <label class="label">Experience Type</label>
+          <select id="projectionType" class="text">
+            <option value="failed">Failed Attempt</option>
+            <option value="vibrations">Vibrations Only</option>
+            <option value="partial">Partial Projection</option>
+            <option value="full">Full Projection</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="label">Clarity (1-10)</label>
+          <input id="projectionClarity" type="range" min="1" max="10" value="5" class="text" style="width:100%"/>
+          <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--muted)">
+            <span>Vague</span><span id="clarityValue">5</span><span>Crystal Clear</span>
+          </div>
+        </div>
+        <div class="field">
+          <label class="label">Duration (minutes)</label>
+          <input id="projectionDuration" type="number" class="text" placeholder="0" min="0"/>
+        </div>
+        <div class="field">
+          <label class="label">Locations Visited</label>
+          <div style="display:flex; gap:6px; flex-wrap:wrap">
+            <button type="button" class="location-btn" data-location="home">🏠 Home</button>
+            <button type="button" class="location-btn" data-location="nature">🌲 Nature</button>
+            <button type="button" class="location-btn" data-location="city">🏙️ City</button>
+            <button type="button" class="location-btn" data-location="space">🌌 Space</button>
+            <button type="button" class="location-btn" data-location="other-dimension">🌀 Other Dimension</button>
+            <button type="button" class="location-btn" data-location="unknown">❓ Unknown</button>
+          </div>
+        </div>
+        <div class="field">
+          <label class="label">Projection Tags</label>
+          <input id="projectionTagsInput" class="text" placeholder="meditation, rope technique, etc."/>
+          <div id="projectionTagsDisplay" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px"></div>
+        </div>
+      </div>
+      <div>
+        <div class="field">
+          <label class="label">Experience Description</label>
+          <div class="rte">
+            <div class="rtebar">
+              <button data-cmd="bold">B</button>
+              <button data-cmd="italic"><em>I</em></button>
+              <button data-cmd="underline"><u>U</u></button>
+              <button data-cmd="insertUnorderedList">• List</button>
+              <button data-cmd="insertOrderedList">1. List</button>
+            </div>
+            <div id="projectionDescription" class="area" contenteditable="true" spellcheck="false" style="min-height:200px"></div>
+          </div>
+        </div>
+        <div class="field">
+          <label class="label">Technique Used</label>
+          <select id="projectionTechniqueSelect" class="text">
+            <option value="">Select technique...</option>
+            <option value="rope">Rope Technique</option>
+            <option value="monroe">Monroe Technique</option>
+            <option value="wake-back-to-bed">Wake Back to Bed</option>
+            <option value="meditation">Meditation</option>
+            <option value="visualization">Visualization</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="label">Goals Attempted</label>
+          <select id="projectionGoalsSelect" class="text" multiple style="height:80px">
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+        <div class="field">
+          <label class="label">Challenges Faced</label>
+          <div style="display:flex; gap:6px; flex-wrap:wrap">
+            <button type="button" class="emotion-btn" data-challenge="fear">😰 Fear</button>
+            <button type="button" class="emotion-btn" data-challenge="distraction">🤯 Distraction</button>
+            <button type="button" class="emotion-btn" data-challenge="physical-discomfort">😣 Physical Discomfort</button>
+            <button type="button" class="emotion-btn" data-challenge="time-pressure">⏰ Time Pressure</button>
+            <button type="button" class="emotion-btn" data-challenge="doubt">🤔 Doubt</button>
+            <button type="button" class="emotion-btn" data-challenge="interruption">📞 Interruption</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn ghost" id="projectionCancel">Cancel</button>
+      <button class="btn primary" id="projectionSave">Save Projection</button>
+    </div>
+  </div>
+</div>
+
+<!-- Astral Goal Modal -->
+<div class="modal" id="astralGoalModal" aria-hidden="true">
+  <div class="modal-card">
+    <h3 id="astralGoalModalTitle" style="margin:0 0 16px">New Astral Projection Goal</h3>
+    <div class="field"><label class="label">Goal Title</label><input id="astralGoalTitle" class="text" placeholder="e.g. Visit a specific location"/></div>
+    <div class="field">
+      <label class="label">Category</label>
+      <select id="astralGoalCategory" class="text">
+        <option value="exploration">Exploration</option>
+        <option value="travel">Astral Travel</option>
+        <option value="meeting">Meeting Entities</option>
+        <option value="healing">Healing Work</option>
+        <option value="learning">Learning/Information</option>
+        <option value="verification">Reality Verification</option>
+        <option value="skill">Skill Development</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="field"><label class="label">Description</label><textarea id="astralGoalDescription" class="textarea" placeholder="Detailed description of what you want to achieve..."></textarea></div>
+    <div class="field">
+      <label class="label">Difficulty</label>
+      <select id="astralGoalDifficulty" class="text">
+        <option value="easy">Easy</option>
+        <option value="medium">Medium</option>
+        <option value="hard">Hard</option>
+        <option value="expert">Expert</option>
+      </select>
+    </div>
+    <div class="actions">
+      <button class="btn ghost" id="astralGoalCancel">Cancel</button>
+      <button class="btn primary" id="astralGoalSave">Save Goal</button>
+    </div>
+  </div>
+</div>
+
+<!-- Astral Technique Modal -->
+<div class="modal" id="astralTechniqueModal" aria-hidden="true">
+  <div class="modal-card">
+    <h3 id="astralTechniqueModalTitle" style="margin:0 0 16px">Add Astral Projection Technique</h3>
+    <div class="field"><label class="label">Technique Name</label><input id="astralTechniqueName" class="text" placeholder="e.g. Rope Technique, Monroe Method"/></div>
+    <div class="field">
+      <label class="label">Type</label>
+      <select id="astralTechniqueType" class="text">
+        <option value="exit">Exit Technique</option>
+        <option value="induction">Consciousness Induction</option>
+        <option value="visualization">Visualization Method</option>
+        <option value="meditation">Meditation Based</option>
+        <option value="energy">Energy Work</option>
+        <option value="preparation">Preparation Technique</option>
+      </select>
+    </div>
+    <div class="field"><label class="label">Description</label><textarea id="astralTechniqueDescription" class="textarea" placeholder="How to perform this technique..."></textarea></div>
+    <div class="field">
+      <label class="label">Your Success Rating (1-5 stars)</label>
+      <div id="astralTechniqueRating" class="technique-rating">
+        <span class="star" data-rating="1">★</span>
+        <span class="star" data-rating="2">★</span>
+        <span class="star" data-rating="3">★</span>
+        <span class="star" data-rating="4">★</span>
+        <span class="star" data-rating="5">★</span>
+      </div>
+    </div>
+    <div class="field"><label class="label">Notes</label><textarea id="astralTechniqueNotes" class="textarea" placeholder="Personal notes, tips, modifications..."></textarea></div>
+    <div class="actions">
+      <button class="btn ghost" id="astralTechniqueCancel">Cancel</button>
+      <button class="btn primary" id="astralTechniqueSave">Save Technique</button>
+    </div>
+  </div>
+</div>
+
+<!-- Portal Editor Drawer -->
+<div class="drawer" id="portalDrawer" aria-hidden="true">
+  <div style="display:grid; grid-template-columns:280px 1fr; height:100%">
+    <aside class="sections" style="background:#0f1116">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px">
+        <strong>Sections</strong>
+        <button class="btn small" id="peClose">Close</button>
+      </div>
+      <div class="field"><label class="label">Portal Name</label><input id="peName" class="text"/></div>
+      <div class="field"><label class="label">Cover</label>
+        <div style="display:flex; gap:8px; align-items:center">
+          <div id="peCoverPrev" class="portal-circle" style="width:64px;height:64px">IMG</div>
+          <label class="btn small" style="justify-content:center">Upload<input id="peCoverInput" type="file" accept="image/*" style="display:none"/></label>
+        </div>
+      </div>
+      <ul id="peSecList" style="list-style:none; padding:0; margin:12px 0; display:grid; gap:6px"></ul>
+      <div style="display:flex; gap:6px; margin-top:6px">
+        <input id="peNewSec" class="text" placeholder="New section name"/>
+        <button class="btn small" id="peAddSec">Add</button>
+      </div>
+    </aside>
+    <section class="editor">
+      <div id="peEditors" style="display:grid; gap:18px"></div>
+      <div style="position:sticky; bottom:0; padding-top:12px; background:linear-gradient(180deg, transparent, #111217); display:flex; gap:8px; justify-content:flex-end">
+        <button class="btn ghost" id="peCancel">Discard</button>
+        <button class="btn primary" id="peSave">Save Portal</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+  // ===== State =====
+  const storeKey='drsb-data-v2';
+  let state = load() || { 
+    portals:[], 
+    waitingRooms:[], 
+    journal:[], 
+    playlists:[], 
+    images:[], 
+    dreams:[], 
+    lucidGoals:[], 
+    techniques:[], 
+    projections:[], 
+    astralGoals:[], 
+    astralTechniques:[], 
+    sync:{
+      provider:null, 
+      appKey:'', 
+      accessToken:'', 
+      path:'/Apps/DR Script Builder/data.json', 
+      auto:false, 
+      intervalMins:5, 
+      lastSync:0
+    } 
+  };
+  
+  if(!state.playlists) state.playlists=[];
+  if(!state.images) state.images=[];
+  if(!state.dreams) state.dreams=[];
+  if(!state.lucidGoals) state.lucidGoals=[];
+  if(!state.techniques) state.techniques=[];
+  if(!state.projections) state.projections=[];
+  if(!state.astralGoals) state.astralGoals=[];
+  if(!state.astralTechniques) state.astralTechniques=[];
+  if(!state.sync) state.sync={provider:null, appKey:'', accessToken:'', path:'/Apps/DR Script Builder/data.json', auto:false, intervalMins:5, lastSync:0};
+
+  // ===== Utils =====
+  const qs = (q)=>document.querySelector(q);
+  function save(){ 
+    localStorage.setItem(storeKey, JSON.stringify(state)); 
+    // Auto-sync to Dropbox if connected
+    if(state.sync?.accessToken && state.sync?.auto) {
+      setTimeout(() => {
+        syncPush().catch(err => console.warn('Auto-sync failed:', err));
+      }, 100);
+    }
+  }
+  function load(){ try{ return JSON.parse(localStorage.getItem(storeKey)||''); }catch{return null} }
+  function uid(){ return Math.random().toString(36).slice(2)+Date.now().toString(36); }
+  function toLocalInput(iso){ try{ const d=new Date(iso); const pad=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }catch{ return ''; } }
+
+  // ===== Navigation =====
+  const views={ 
+    portals:qs('#portals-view'), 
+    journal:qs('#journal-view'), 
+    playlists:qs('#playlists-view'), 
+    waiting:qs('#waiting-view'), 
+    visualizers:qs('#visualizers-view'), 
+    settings:qs('#settings-view'),
+    lucid:qs('#lucid-view'),
+    astral:qs('#astral-view')
+  };
+  
+  document.querySelectorAll('.nav button').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const view = btn.dataset.view; 
+      Object.keys(views).forEach(k=>{ 
+        if(views[k]) views[k].hidden = k!==view; 
+      });
+      if(view==='portals') renderPortals();
+      if(view==='journal') renderJournal();
+      if(view==='waiting') renderWR();
+      if(view==='playlists') renderPlaylists();
+      if(view==='visualizers') renderVisualizers();
+      if(view==='lucid') renderLucidDreaming();
+      if(view==='astral') renderAstralProjection();
+    });
+  });
+
+  // ===== Confirm Modal =====
+  function askConfirm(message){
+    const modal=qs('#confirmModal'); 
+    const txt=qs('#confirmText'); 
+    const ok=qs('#confirmOk'); 
+    const cancel=qs('#confirmCancel');
+    return new Promise((resolve)=>{
+      const cleanup=()=>{ 
+        ok.onclick=null; 
+        cancel.onclick=null; 
+        modal.classList.remove('open'); 
+        modal.setAttribute('aria-hidden','true'); 
+      };
+      txt.textContent=message||'Are you sure?'; 
+      modal.classList.add('open'); 
+      modal.setAttribute('aria-hidden','false');
+      ok.onclick=()=>{ cleanup(); resolve(true); }; 
+      cancel.onclick=()=>{ cleanup(); resolve(false); };
+    });
+  }
+
+  // ===== Portals =====
+  const portalGrid=qs('#portalGrid');
+  function renderPortals(){
+    portalGrid.innerHTML='';
+    // Create tile always first
+    const creator=document.createElement('div'); 
+    creator.className='portal-card';
+    creator.innerHTML='<div class="portal-circle add" id="addPortal"></div><div class="portal-name">Create Portal</div>';
+    portalGrid.appendChild(creator);
+    qs('#addPortal').onclick=()=>openCreatePortal();
+
+    (state.portals||[]).forEach((p,idx)=>{
+      const card=document.createElement('div'); 
+      card.className='portal-card';
+      const circle=document.createElement('div'); 
+      circle.className='portal-circle';
+      if(p.cover){ 
+        circle.style.backgroundImage=`url(${p.cover})`; 
+      } else { 
+        circle.textContent=p.name?.slice(0,10)||'Portal'; 
+      }
+      circle.title='Click to edit portal';
+      circle.onclick=()=>openEditPortal(idx);
+      const name=document.createElement('div'); 
+      name.className='portal-name'; 
+      name.textContent=p.name||'Portal';
+      name.style.cursor='pointer';
+      name.onclick=()=>openEditPortal(idx);
+      const actions=document.createElement('div'); 
+      actions.className='portal-actions';
+      const edit=document.createElement('button'); 
+      edit.className='btn small'; 
+      edit.textContent='Edit'; 
+      edit.onclick=()=>openEditPortal(idx);
+      const del=document.createElement('button'); 
+      del.className='btn small'; 
+      del.textContent='Delete'; 
+      del.onclick=async()=>{ 
+        if(await askConfirm('Delete this portal?')){ 
+          state.portals.splice(idx,1); 
+          save(); 
+          renderPortals(); 
+        } 
+      };
+      actions.append(edit, del);
+      card.append(circle, name, actions);
+      portalGrid.appendChild(card);
+    });
+
+    qs('#portalEmpty').style.display = (state.portals||[]).length? 'none' : 'grid';
+  }
+
+  // Create Portal Modal
+  const pModal=qs('#portalModal'); 
+  const pCoverPrev=qs('#pCoverPreview'); 
+  const pCoverInput=qs('#pCoverInput'); 
+  const pNameInput=qs('#pNameInput');
+  let pEditingIndex=null;
+
+  function resetPortalModal(){ 
+    pCoverPrev.style.backgroundImage=''; 
+    pCoverPrev.textContent='IMG'; 
+    pCoverPrev.dataset.src=''; 
+    pNameInput.value=''; 
+  }
+
+  qs('#pCancel').onclick=()=>{ pModal.classList.remove('open'); pEditingIndex=null; };
+  qs('#pCreate').onclick=()=>{
+    const name=(pNameInput.value||'').trim()||'Untitled Portal';
+    const cover=pCoverPrev.dataset.src||'';
+    if(pEditingIndex==null){
+      const portal={ id:uid(), name, cover, created:Date.now() };
+      state.portals.push(portal);
+    } else {
+      const p=state.portals[pEditingIndex]; 
+      if(p){ p.name=name; p.cover=cover; }
+    }
+    save(); 
+    pModal.classList.remove('open'); 
+    const btn=qs('#pCreate'); 
+    if(btn) btn.textContent='Create'; 
+    resetPortalModal(); 
+    renderPortals();
+  };
+
+  pCoverInput.onchange=(e)=>{ 
+    const f=e.target.files[0]; 
+    if(!f) return; 
+    const r=new FileReader(); 
+    r.onload=()=>{ 
+      pCoverPrev.dataset.src=r.result; 
+      pCoverPrev.style.backgroundImage=`url(${r.result})`; 
+      pCoverPrev.textContent=''; 
+    }; 
+    r.readAsDataURL(f); 
+  };
+
+  function openCreatePortal(){ 
+    pEditingIndex=null; 
+    resetPortalModal(); 
+    pModal.classList.add('open'); 
+    const btn=qs('#pCreate'); 
+    if(btn) btn.textContent='Create'; 
+    pNameInput.focus(); 
+  }
+
+  function openEditPortal(idx){ 
+    openPortalEditor(idx); 
+  }
+
+  // ===== Waiting Rooms =====
+  function renderWR(){
+    const grid=qs('#wrGrid'); 
+    grid.innerHTML='';
+    const add=document.createElement('div'); 
+    add.className='wr-card'; 
+    add.innerHTML='<div class="wr-thumb new" id="wrCreate"></div><div class="wr-label">Create Waiting Room</div>';
+    add.querySelector('#wrCreate').onclick=()=>openWREdit(); 
+    grid.appendChild(add);
+    
+    (state.waitingRooms||[]).forEach((wr)=>{
+      const card=document.createElement('div'); 
+      card.className='wr-card';
+      const thumb=document.createElement('div'); 
+      thumb.className='wr-thumb';
+      if(wr.image){ 
+        thumb.style.backgroundImage=`url(${wr.image})`; 
+      } else { 
+        thumb.textContent=wr.name||'Waiting Room'; 
+      }
+      if(wr.default){ 
+        const b=document.createElement('div'); 
+        b.className='badge'; 
+        b.textContent='Default'; 
+        thumb.appendChild(b); 
+      }
+      thumb.onclick=()=>openWREdit(wr);
+      const label=document.createElement('div'); 
+      label.className='wr-label'; 
+      label.textContent=wr.name||'Waiting Room';
+      const actions=document.createElement('div'); 
+      actions.className='wr-actions';
+      const del=document.createElement('button'); 
+      del.className='btn small'; 
+      del.textContent='Delete'; 
+      del.setAttribute('data-wr-del', wr.id);
+      del.onclick=async (ev)=>{ 
+        ev.preventDefault(); 
+        ev.stopPropagation(); 
+        if(await askConfirm('Delete this waiting room?')){ 
+          const i=state.waitingRooms.findIndex(x=>x.id===wr.id); 
+          if(i>-1){ 
+            state.waitingRooms.splice(i,1); 
+            if(!state.waitingRooms.some(w=>w.default) && state.waitingRooms[0]) 
+              state.waitingRooms[0].default=true; 
+            save(); 
+            renderWR(); 
+          }
+        } 
+      };
+      actions.appendChild(del);
+      card.append(thumb,label,actions); 
+      grid.appendChild(card);
+    });
+  }
+
+  // WR modal
+  const wrModal=qs('#wrModal'); 
+  const wrThumbEdit=qs('#wrThumbEdit'); 
+  const wrImgInput=qs('#wrImgInput'); 
+  const wrName=qs('#wrName'); 
+  const wrDefault=qs('#wrDefault'); 
+  const wrDesc=qs('#wrDesc'); 
+  const wrAff=qs('#wrAff'); 
+  const wrChecklist=qs('#wrChecklist'); 
+  const wrChecklistItem=qs('#wrChecklistItem');
+  let wrEditingId=null;
+  
+  qs('#wrAddItem').onclick=()=>{ 
+    const t=(wrChecklistItem.value||'').trim(); 
+    if(!t) return; 
+    const li=document.createElement('li'); 
+    li.textContent=t; 
+    wrChecklist.appendChild(li); 
+    wrChecklistItem.value=''; 
+  };
+  
+  wrImgInput.onchange=(e)=>{ 
+    const f=e.target.files[0]; 
+    if(!f) return; 
+    const r=new FileReader(); 
+    r.onload=()=>{ 
+      wrThumbEdit.style.backgroundImage=`url(${r.result})`; 
+      wrThumbEdit.textContent=''; 
+      wrThumbEdit.dataset.src=r.result; 
+    }; 
+    r.readAsDataURL(f); 
+  };
+  
+  qs('#wrCancel').onclick=()=>{ wrModal.classList.remove('open'); };
+  qs('#wrSave').onclick=()=>{
+    const data={ 
+      id: wrEditingId||uid(), 
+      name:(wrName.value||'').trim()||'Waiting Room', 
+      image: wrThumbEdit.dataset.src||'', 
+      default: wrDefault.checked, 
+      html: wrDesc.innerHTML, 
+      affirmations: (wrAff.value||'').split('\n').filter(Boolean), 
+      checklist: Array.from(wrChecklist.children).map(li=>li.textContent), 
+      timer: (qs('#wrTimer').value||'').trim() 
+    };
+    const idx=state.waitingRooms.findIndex(w=>w.id===data.id);
+    if(idx>-1) state.waitingRooms[idx]=data; 
+    else state.waitingRooms.push(data);
+    if(data.default){ 
+      state.waitingRooms.forEach(w=>{ 
+        if(w.id!==data.id) w.default=false; 
+      }); 
+    }
+    save(); 
+    wrModal.classList.remove('open'); 
+    renderWR();
+  };
+  
+  function openWREdit(wr){
+    const data = wr || { 
+      id:null, 
+      name:'', 
+      image:'', 
+      default: !state.waitingRooms.length, 
+      html:'', 
+      affirmations:[], 
+      checklist:[], 
+      timer:'' 
+    };
+    wrEditingId=data.id; 
+    wrName.value=data.name||''; 
+    wrDefault.checked=!!data.default; 
+    wrDesc.innerHTML=data.html||''; 
+    wrAff.value=(data.affirmations||[]).join('\n'); 
+    wrChecklist.innerHTML=''; 
+    (data.checklist||[]).forEach(t=>{ 
+      const li=document.createElement('li'); 
+      li.textContent=t; 
+      wrChecklist.appendChild(li); 
+    }); 
+    qs('#wrTimer').value=data.timer||''; 
+    if(data.image){ 
+      wrThumbEdit.style.backgroundImage=`url(${data.image})`; 
+      wrThumbEdit.textContent=''; 
+      wrThumbEdit.dataset.src=data.image; 
+    } else { 
+      wrThumbEdit.style.backgroundImage=''; 
+      wrThumbEdit.textContent=data.name||'Name'; 
+      wrThumbEdit.dataset.src=''; 
+    }
+    wrModal.classList.add('open');
+  }
+
+  // ===== Playlists =====
+  const plGrid=qs('#plGrid'); 
+  const plSearch=qs('#plSearch'); 
+  const plPortalFilter=qs('#plPortalFilter');
+  const plModal=qs('#plModal'); 
+  const plCoverPrev=qs('#plCoverPrev'); 
+  const plCoverInput=qs('#plCoverInput'); 
+  const plName=qs('#plName'); 
+  const plPortalSel=qs('#plPortal'); 
+  const trkTitle=qs('#trkTitle'); 
+  const trkArtist=qs('#trkArtist'); 
+  const trkUrl=qs('#trkUrl'); 
+  const trkAdd=qs('#trkAdd'); 
+  const trkList=qs('#trkList');
+  let plEditingId=null; 
+  let plWorkingTracks=[];
+
+  function renderPlaylists(){
+    // filters
+    plPortalFilter.innerHTML=''; 
+    const optAll=document.createElement('option'); 
+    optAll.value=''; 
+    optAll.textContent='All portals'; 
+    plPortalFilter.appendChild(optAll); 
+    (state.portals||[]).forEach((p,i)=>{ 
+      const o=document.createElement('option'); 
+      o.value=String(i); 
+      o.textContent=p.name||`Portal ${i+1}`; 
+      plPortalFilter.appendChild(o); 
+    });
+
+    plGrid.innerHTML='';
+    const add=document.createElement('div'); 
+    add.className='pl-card'; 
+    add.innerHTML='<div class="pl-thumb new" id="plCreate"></div><div class="pl-label">Create Playlist</div>';
+    add.querySelector('#plCreate').onclick=()=>openPLEdit(); 
+    plGrid.appendChild(add);
+
+    let items=[...(state.playlists||[])];
+    const q=(plSearch.value||'').toLowerCase().trim(); 
+    if(q){ 
+      items=items.filter(pl=> 
+        (pl.name||'').toLowerCase().includes(q) || 
+        (pl.tracks||[]).some(t=> 
+          (t.title||'').toLowerCase().includes(q) || 
+          (t.artist||'').toLowerCase().includes(q)
+        )
+      ); 
+    }
+    const pf=plPortalFilter.value||''; 
+    if(pf!==''){ 
+      const i=parseInt(pf,10); 
+      items=items.filter(pl=> (pl.portalIndex??-1)===i); 
+    }
+
+    items.forEach(pl=>{
+      const card=document.createElement('div'); 
+      card.className='pl-card';
+      const th=document.createElement('div'); 
+      th.className='pl-thumb';
+      if(pl.cover){ 
+        th.style.backgroundImage=`url(${pl.cover})`; 
+      } else { 
+        th.textContent=pl.name||'Playlist'; 
+      }
+      th.onclick=()=>openPLEdit(pl);
+      const label=document.createElement('div'); 
+      label.className='pl-label'; 
+      label.textContent=pl.name||'Playlist';
+      const meta=document.createElement('div'); 
+      meta.style.cssText='text-align:center; color:var(--faint); font-size:12px'; 
+      meta.textContent=`${(pl.tracks||[]).length} track(s)`;
+      const actions=document.createElement('div'); 
+      actions.style.cssText='display:flex; gap:6px; justify-content:center';
+      const del=document.createElement('button'); 
+      del.className='btn small'; 
+      del.textContent='Delete'; 
+      del.onclick=async (ev)=>{ 
+        ev.preventDefault(); 
+        ev.stopPropagation(); 
+        if(await askConfirm('Delete this playlist?')){ 
+          const i=state.playlists.findIndex(x=>x.id===pl.id); 
+          if(i>-1){ 
+            state.playlists.splice(i,1); 
+            save(); 
+            renderPlaylists(); 
+          } 
+        } 
+      };
+      actions.appendChild(del);
+      card.append(th,label,meta,actions); 
+      plGrid.appendChild(card);
+    });
+
+    const hasAny=(state.playlists||[]).length>0; 
+    qs('#plEmpty').style.display = hasAny? 'none' : 'grid';
+  }
+
+  function resetPLModal(){ 
+    plCoverPrev.style.backgroundImage=''; 
+    plCoverPrev.textContent='Cover'; 
+    plCoverPrev.dataset.src=''; 
+    plName.value=''; 
+    trkTitle.value=''; 
+    trkArtist.value=''; 
+    trkUrl.value=''; 
+    trkList.innerHTML=''; 
+    plPortalSel.innerHTML=''; 
+    plWorkingTracks=[]; 
+  }
+
+  function openPLEdit(pl){
+    plEditingId = pl?.id || null; 
+    resetPLModal();
+    // portals dropdown
+    const none=document.createElement('option'); 
+    none.value='-1'; 
+    none.textContent='No portal link'; 
+    plPortalSel.appendChild(none);
+    (state.portals||[]).forEach((p,i)=>{ 
+      const o=document.createElement('option'); 
+      o.value=String(i); 
+      o.textContent=p.name||`Portal ${i+1}`; 
+      plPortalSel.appendChild(o); 
+    });
+
+    if(pl){
+      plName.value=pl.name||''; 
+      plPortalSel.value=String(pl.portalIndex ?? -1);
+      if(pl.cover){ 
+        plCoverPrev.dataset.src=pl.cover; 
+        plCoverPrev.style.backgroundImage=`url(${pl.cover})`; 
+        plCoverPrev.textContent=''; 
+      }
+      plWorkingTracks=[...(pl.tracks||[])];
+      renderTrackList();
+      qs('#plModalTitle').textContent='Edit Playlist';
+    } else {
+      qs('#plModalTitle').textContent='New Playlist';
+      plWorkingTracks=[]; 
+      renderTrackList();
+      plPortalSel.value='-1';
+    }
+
+    plModal.classList.add('open');
+  }
+
+  function renderTrackList(){
+    trkList.innerHTML='';
+    if(!plWorkingTracks.length){ 
+      const empty=document.createElement('div'); 
+      empty.style.cssText='color:var(--muted); text-align:center; padding:8px'; 
+      empty.textContent='No tracks yet'; 
+      trkList.appendChild(empty); 
+      return; 
+    }
+    plWorkingTracks.forEach((t,idx)=>{
+      const row=document.createElement('div'); 
+      row.className='track';
+      row.innerHTML=`<div><strong>${(t.title||'Untitled').replace(/&/g,'&amp;').replace(/</g,'&lt;')}</strong><div style="color:var(--faint); font-size:12px">${(t.artist||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div><div style="margin-top:4px; font-size:12px"><a href="${t.url||'#'}" target="_blank" rel="noopener">${(t.url||'').replace(/&/g,'&amp;')}</a></div></div>`;
+      const up=document.createElement('button'); 
+      up.className='btn small'; 
+      up.textContent='↑'; 
+      up.title='Move up'; 
+      up.onclick=()=>{ 
+        if(idx>0){ 
+          const tmp=plWorkingTracks[idx-1]; 
+          plWorkingTracks[idx-1]=plWorkingTracks[idx]; 
+          plWorkingTracks[idx]=tmp; 
+          renderTrackList(); 
+        } 
+      };
+      const del=document.createElement('button'); 
+      del.className='btn small'; 
+      del.textContent='Delete'; 
+      del.onclick=()=>{ 
+        plWorkingTracks.splice(idx,1); 
+        renderTrackList(); 
+      };
+      row.appendChild(up); 
+      row.appendChild(del); 
+      trkList.appendChild(row);
+    });
+  }
+
+  trkAdd.onclick=()=>{ 
+    const title=(trkTitle.value||'').trim(); 
+    const artist=(trkArtist.value||'').trim(); 
+    const url=(trkUrl.value||'').trim(); 
+    if(!title && !url){ return; } 
+    plWorkingTracks.push({ id:uid(), title, artist, url }); 
+    trkTitle.value=''; 
+    trkArtist.value=''; 
+    trkUrl.value=''; 
+    renderTrackList(); 
+  };
+  
+  plCoverInput.onchange=(e)=>{ 
+    const f=e.target.files[0]; 
+    if(!f) return; 
+    const r=new FileReader(); 
+    r.onload=()=>{ 
+      plCoverPrev.dataset.src=r.result; 
+      plCoverPrev.style.backgroundImage=`url(${r.result})`; 
+      plCoverPrev.textContent=''; 
+    }; 
+    r.readAsDataURL(f); 
+  };
+  
+  qs('#plCancel').onclick=()=>{ plModal.classList.remove('open'); };
+  qs('#plSave').onclick=()=>{
+    const data={ 
+      id: plEditingId||uid(), 
+      name:(plName.value||'').trim()||'Playlist', 
+      cover: plCoverPrev.dataset.src||'', 
+      portalIndex: parseInt(plPortalSel.value||'-1',10), 
+      tracks:[...plWorkingTracks] 
+    };
+    const idx=(state.playlists||[]).findIndex(x=>x.id===data.id);
+    if(idx>-1) state.playlists[idx]=data; 
+    else state.playlists.push(data);
+    save(); 
+    plModal.classList.remove('open'); 
+    renderPlaylists();
+  };
+
+  plSearch?.addEventListener('input', ()=> renderPlaylists());
+  plPortalFilter?.addEventListener('change', ()=> renderPlaylists());
+
+  // RTE shared (image insert)
+  document.addEventListener('click',(e)=>{
+    const btn=e.target.closest('[data-cmd]'); 
+    if(btn){ 
+      const area = btn.closest('.rte')?.querySelector('.area');
+      if(area) {
+        area.focus();
+        document.execCommand(btn.getAttribute('data-cmd'), false, null); 
+      }
+    }
+  });
+
+  // Handle file input for RTE image insertion
+  document.addEventListener('change',(e)=>{
+    const up=e.target.closest('input[type=file][data-img]');
+    if(up){ 
+      const f=e.target.files[0]; 
+      if(!f) return; 
+      const r=new FileReader(); 
+      r.onload=()=>{ 
+        const rte = up.closest('.rte');
+        const area = rte?.querySelector('.area');
+        if(area) {
+          area.focus();
+          const img = document.createElement('img');
+          img.src = r.result;
+          img.alt = f.name || 'Uploaded image';
+          img.style.maxWidth = '100%';
+          img.style.borderRadius = '10px';
+          img.style.border = '1px solid var(--border)';
+          img.style.display = 'block';
+          img.style.margin = '8px 0';
+          
+          const selection = window.getSelection();
+          if(selection && selection.rangeCount > 0 && area.contains(selection.anchorNode)) {
+            const range = selection.getRangeAt(0);
+            range.deleteContents();
+            range.insertNode(img);
+            range.collapse(false);
+          } else {
+            area.appendChild(img);
+          }
+          
+          up.value = ''; 
+        }
+      }; 
+      r.readAsDataURL(f); 
+    }
+  });
+
+  // ===== Journal =====
+  const jModal=qs('#journalModal'); 
+  const jTitle=qs('#jTitle'); 
+  const jDate=qs('#jDate'); 
+  const jPortalSel=qs('#jPortal'); 
+  const jBody=qs('#jBody'); 
+  const jTagsInput=qs('#jTagsInput'); 
+  const jTags=qs('#jTags'); 
+  const jSearch=qs('#jSearch'); 
+  const jSort=qs('#jSort'); 
+  const jPortalFilter2=qs('#jPortalFilter'); 
+  const jTagBar=qs('#jTagBar');
+  let currentEntryIndex=null; 
+  let activeTagFilters=new Set();
+
+  qs('#newEntry').onclick=()=> openJournalEditor();
+  qs('#jCancel').onclick=()=>{ jModal.classList.remove('open'); };
+  qs('#jSave').onclick=()=>{
+    const tags = Array.from(jTags.querySelectorAll('.tag')).map(t=>t.dataset.tag);
+    const entry={ 
+      id: currentEntryIndex==null? uid() : state.journal[currentEntryIndex].id, 
+      title: (jTitle.value||'').trim(), 
+      date: new Date(jDate.value).toISOString(), 
+      portalIndex: parseInt(jPortalSel.value||'-1',10), 
+      html: jBody.innerHTML, 
+      text: jBody.textContent||'', 
+      tags, 
+      updated:Date.now() 
+    };
+    if(currentEntryIndex==null){ 
+      state.journal.unshift(entry); 
+    } else { 
+      state.journal[currentEntryIndex]=entry; 
+    }
+    save(); 
+    jModal.classList.remove('open'); 
+    renderJournal();
+  };
+  
+  jTagsInput.addEventListener('keydown',(e)=>{ 
+    if(e.key==='Enter'){ 
+      e.preventDefault(); 
+      const v=jTagsInput.value.trim(); 
+      if(v){ 
+        v.split(',').map(s=>s.trim()).filter(Boolean).forEach(addTagChip); 
+        jTagsInput.value=''; 
+      } 
+    } 
+  });
+  
+  function addTagChip(tag){ 
+    const t=String(tag).trim(); 
+    if(!t) return; 
+    const chip=document.createElement('span'); 
+    chip.className='tag'; 
+    chip.textContent=t; 
+    chip.dataset.tag=t; 
+    const x=document.createElement('button'); 
+    x.textContent='✕'; 
+    x.className='btn small'; 
+    x.style.marginLeft='6px'; 
+    x.onclick=(ev)=>{ 
+      ev.preventDefault(); 
+      chip.remove(); 
+    }; 
+    chip.appendChild(x); 
+    jTags.appendChild(chip); 
+  }
+
+  document.addEventListener('click',(ev)=>{
+    const edit = ev.target.closest('[data-j-edit]'); 
+    if(edit){ 
+      const id=edit.getAttribute('data-j-edit'); 
+      const idx=state.journal.findIndex(e=>e.id===id); 
+      if(idx>-1) openJournalEditor(state.journal[idx], idx); 
+      return; 
+    }
+    const del = ev.target.closest('[data-j-del]'); 
+    if(del){ 
+      ev.preventDefault(); 
+      const id=del.getAttribute('data-j-del'); 
+      const idx=state.journal.findIndex(e=>e.id===id); 
+      if(idx===-1) return; 
+      askConfirm('Delete this entry?').then(ok=>{ 
+        if(!ok) return; 
+        state.journal.splice(idx,1); 
+        save(); 
+        renderJournal(); 
+      }); 
+      return; 
+    }
+    const tg = ev.target.closest('.entry .tag'); 
+    if(tg && tg.dataset.tag){ 
+      if(activeTagFilters.has(tg.dataset.tag)) 
+        activeTagFilters.delete(tg.dataset.tag); 
+      else 
+        activeTagFilters.add(tg.dataset.tag); 
+      renderJournal(); 
+    }
+  });
+
+  jSearch.addEventListener('input', ()=> renderJournal());
+  jSort.addEventListener('change', ()=> renderJournal());
+  jPortalFilter2.addEventListener('change', ()=> renderJournal());
+
+  function openJournalEditor(entry=null, idx=null){
+    currentEntryIndex=idx; 
+    jModal.classList.add('open');
+    // populate portals
+    jPortalSel.innerHTML=''; 
+    const opt=document.createElement('option'); 
+    opt.value='-1'; 
+    opt.textContent='No portal link'; 
+    jPortalSel.appendChild(opt); 
+    (state.portals||[]).forEach((p,i)=>{ 
+      const o=document.createElement('option'); 
+      o.value=String(i); 
+      o.textContent=p.name||`Portal ${i+1}`; 
+      jPortalSel.appendChild(o); 
+    });
+    jTitle.value = entry?.title||''; 
+    jDate.value = entry?.date ? toLocalInput(entry.date) : toLocalInput(new Date().toISOString()); 
+    jPortalSel.value = String(entry?.portalIndex ?? -1); 
+    jBody.innerHTML = entry?.html || (entry?.text? entry.text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '');
+    jTags.innerHTML=''; 
+    (entry?.tags||[]).forEach(addTagChip); 
+    jTagsInput.value='';
+  }
+
+  function renderJournal(){
+    // Filters UI
+    jPortalFilter2.innerHTML=''; 
+    const all=document.createElement('option'); 
+    all.value=''; 
+    all.textContent='All portals'; 
+    jPortalFilter2.appendChild(all); 
+    (state.portals||[]).forEach((p,i)=>{ 
+      const o=document.createElement('option'); 
+      o.value=String(i); 
+      o.textContent=p.name||`Portal ${i+1}`; 
+      jPortalFilter2.appendChild(o); 
+    });
+    jTagBar.innerHTML=''; 
+    Array.from(new Set(state.journal.flatMap(e=>e.tags||[]))).sort((a,b)=>a.localeCompare(b)).forEach(t=>{ 
+      const chip=document.createElement('span'); 
+      chip.className='tag'; 
+      chip.textContent=t; 
+      chip.dataset.tag=t; 
+      if(activeTagFilters.has(t)) chip.classList.add('active'); 
+      chip.onclick=()=>{ 
+        if(activeTagFilters.has(t)) 
+          activeTagFilters.delete(t); 
+        else 
+          activeTagFilters.add(t); 
+        renderJournal(); 
+      }; 
+      jTagBar.appendChild(chip); 
+    });
+
+    let items=[...state.journal];
+    const q=(jSearch.value||'').toLowerCase().trim(); 
+    if(q){ 
+      items=items.filter(en=> 
+        (en.title||'').toLowerCase().includes(q) || 
+        (en.text||'').toLowerCase().includes(q)
+      ); 
+    }
+    const pf=jPortalFilter2.value||''; 
+    if(pf!=='' ){ 
+      const i=parseInt(pf,10); 
+      items=items.filter(en=> (en.portalIndex??-1)===i); 
+    }
+    if(activeTagFilters.size){ 
+      items=items.filter(en=>{ 
+        const set=new Set(en.tags||[]); 
+        for(const t of activeTagFilters){ 
+          if(!set.has(t)) return false; 
+        } 
+        return true; 
+      }); 
+    }
+    const sort=jSort.value||'date_desc'; 
+    items.sort((a,b)=>{ 
+      if(sort==='date_asc') return new Date(a.date)-new Date(b.date); 
+      if(sort==='title_asc') return (a.title||'').localeCompare(b.title||''); 
+      if(sort==='title_desc') return (b.title||'').localeCompare(a.title||''); 
+      return new Date(b.date)-new Date(a.date); 
+    });
+
+    const list=qs('#journalList'); 
+    list.innerHTML='';
+    if(!items.length){ 
+      qs('#journalEmpty').style.display='grid'; 
+      return; 
+    } else { 
+      qs('#journalEmpty').style.display='none'; 
+    }
+    items.forEach(en=>{
+      const div=document.createElement('div'); 
+      div.className='entry';
+      const portalName = (en.portalIndex!=null && state.portals[en.portalIndex]) ? 
+        (state.portals[en.portalIndex].name||`Portal ${en.portalIndex+1}`) : '—';
+      div.innerHTML = `<div class="meta"><strong>${(en.title||'(untitled)').replace(/&/g,'&amp;').replace(/</g,'&lt;')}</strong> • ${new Date(en.date).toLocaleString()} • <span>Portal: ${(portalName||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')}</span></div><div class="content" style="margin:8px 0">${en.html||''}</div><div class="tags">${(en.tags||[]).map(t=>`<span class=\"tag\" data-tag=\"${t}\">${t}</span>`).join(' ')}</div><div class="actions" style="margin-top:10px"><button class="btn small" data-j-edit="${en.id}">Edit</button><button class="btn small" data-j-del="${en.id}">Delete</button></div>`;
+      list.appendChild(div);
+    });
+  }
+
+  // ===== Portal Editor Logic =====
+  let peIndex=null;
+  const peDrawer=qs('#portalDrawer');
+  const peName=qs('#peName');
+  const peCoverPrev=qs('#peCoverPrev');
+  const peCoverInput=qs('#peCoverInput');
+  const peSecList=qs('#peSecList');
+  const peEditors=qs('#peEditors');
+  const peNewSec=qs('#peNewSec');
+  const defaultSections=[
+    'Overview',
+    'Identity',
+    'Relationships',
+    'World Details',
+    'Rules & Safety',
+    'Abilities',
+    'Items & Resources',
+    'Time & Return',
+    'Notes'
+  ];
+
+  function ensurePortalShape(p){
+    if(!p.sections) p.sections={};
+    if(!p.order) p.order=[...defaultSections];
+    defaultSections.forEach(s=>{ 
+      if(!(s in p.sections)) p.sections[s]=''; 
+      if(!p.order.includes(s)) p.order.push(s); 
+    });
+    return p;
+  }
+
+  function openPortalEditor(idx){
+    peIndex=idx;
+    const p = ensurePortalShape(state.portals[idx]);
+    peName.value = p.name||'';
+    if(p.cover){ 
+      peCoverPrev.dataset.src=p.cover; 
+      peCoverPrev.style.backgroundImage=`url(${p.cover})`; 
+      peCoverPrev.textContent=''; 
+    }
+    else { 
+      peCoverPrev.dataset.src=''; 
+      peCoverPrev.style.backgroundImage=''; 
+      peCoverPrev.textContent='IMG'; 
+    }
+
+    renderSectionList(p);
+    renderSectionEditors(p);
+
+    peDrawer.classList.add('open'); 
+    peDrawer.setAttribute('aria-hidden','false');
+  }
+  
+  function closePortalEditor(){ 
+    peDrawer.classList.remove('open'); 
+    peDrawer.setAttribute('aria-hidden','true'); 
+    peIndex=null; 
+  }
+
+  function renderSectionList(p){
+    peSecList.innerHTML='';
+    p.order.forEach((name,i)=>{
+      const li=document.createElement('li');
+      li.innerHTML=`<button class="btn small" style="width:100%; justify-content:space-between" data-sec="${name}"><span>${name}</span><span style="opacity:.7">›</span></button>`;
+      li.querySelector('button').onclick=()=>{
+        const target=peEditors.querySelector(`[data-editor="${CSS.escape(name)}"]`);
+        if(target) target.scrollIntoView({behavior:'smooth', block:'start'});
+        peSecList.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+        li.querySelector('button').classList.add('active');
+      };
+      peSecList.appendChild(li);
+    });
+  }
+  
+  function renderSectionEditors(p){
+    peEditors.innerHTML='';
+    p.order.forEach((name)=>{
+      const wrap=document.createElement('div');
+      wrap.setAttribute('data-editor', name);
+      wrap.innerHTML = `
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px">
+          <h3 style="margin:0">${name}</h3>
+          <div class="rtebar">
+            <button data-cmd="bold">B</button>
+            <button data-cmd="italic"><em>I</em></button>
+            <button data-cmd="underline"><u>U</u></button>
+            <button data-cmd="insertUnorderedList">• List</button>
+            <button data-cmd="insertOrderedList">1. List</button>
+            <label class="btn-file" style="background:#171920; border:1px solid var(--border); padding:6px 8px; border-radius:8px; cursor:pointer">🖼 Add Image<input type="file" accept="image/*" data-img="sec-${name}"></label>
+          </div>
+        </div>
+        <div class="rte"><div class="area" contenteditable="true" data-area="${name}"></div></div>
+      `;
+      peEditors.appendChild(wrap);
+      const area = wrap.querySelector('[data-area]');
+      area.innerHTML = p.sections[name]||'';
+    });
+  }
+
+  // Portal editor events
+  qs('#peClose').onclick=closePortalEditor; 
+  qs('#peCancel').onclick=closePortalEditor;
+  peCoverInput.onchange=(e)=>{ 
+    const f=e.target.files[0]; 
+    if(!f) return; 
+    const r=new FileReader(); 
+    r.onload=()=>{ 
+      peCoverPrev.dataset.src=r.result; 
+      peCoverPrev.style.backgroundImage=`url(${r.result})`; 
+      peCoverPrev.textContent=''; 
+    }; 
+    r.readAsDataURL(f); 
+  };
+  
+  qs('#peAddSec').onclick=()=>{ 
+    const name=(peNewSec.value||'').trim(); 
+    if(!name) return; 
+    const p=state.portals[peIndex]; 
+    if(!p.order.includes(name)){ 
+      p.order.push(name); 
+      p.sections[name]=''; 
+      renderSectionList(p); 
+      renderSectionEditors(p); 
+      peNewSec.value=''; 
+    } 
+  };
+
+  // RTE image insert for portal sections
+  document.addEventListener('change',(e)=>{
+    const up=e.target.closest('input[type=file][data-img^="sec-"]');
+    if(up){ 
+      const f=e.target.files[0]; 
+      if(!f) return; 
+      const r=new FileReader(); 
+      r.onload=()=>{ 
+        const name=up.getAttribute('data-img').slice(4); 
+        const area=peEditors.querySelector(`[data-area="${CSS.escape(name)}"]`); 
+        if(area){ 
+          const img=document.createElement('img'); 
+          img.src=r.result; 
+          img.alt=''; 
+          img.style.maxWidth='100%'; 
+          img.style.borderRadius='10px'; 
+          img.style.border='1px solid var(--border)'; 
+          const sel=window.getSelection(); 
+          if(sel && sel.rangeCount){ 
+            const range=sel.getRangeAt(0); 
+            range.collapse(false); 
+            range.insertNode(img); 
+          } else { 
+            area.appendChild(img); 
+          } 
+        } 
+        up.value=''; 
+      }; 
+      r.readAsDataURL(f); 
+    }
+  });
+
+  qs('#peSave').onclick=()=>{
+    const p=state.portals[peIndex]; 
+    if(!p) return;
+    p.name = (peName.value||'').trim()||'Untitled Portal';
+    p.cover = peCoverPrev.dataset.src||p.cover||'';
+    p.sections = p.sections||{};
+    p.order = p.order||[];
+    peEditors.querySelectorAll('[data-area]').forEach(area=>{ 
+      const key=area.getAttribute('data-area'); 
+      p.sections[key]=area.innerHTML; 
+    });
+    save(); 
+    renderPortals(); 
+    closePortalEditor();
+  };
+
+  // ===== Visualizers =====
+  const vizContainer=qs('#vizContainer'); 
+  const vizEmpty=qs('#vizEmpty'); 
+  const vizSearch=qs('#vizSearch'); 
+  const vizPortalFilter=qs('#vizPortalFilter'); 
+  const vizTagBar=qs('#vizTagBar');
+  const vizUploadModal=qs('#vizUploadModal'); 
+  const vizUploadBtn=qs('#vizUploadBtn'); 
+  const vizFiles=qs('#vizFiles'); 
+  const vizName=qs('#vizName'); 
+  const vizPortalSel=qs('#vizPortalSel'); 
+  const vizTagsInput=qs('#vizTagsInput');
+  const lightbox=qs('#lightbox'); 
+  const lbImg=qs('#lbImg'); 
+  const lbMeta=qs('#lbMeta'); 
+  const lbDelete=qs('#lbDelete');
+  qs('#lbClose')?.addEventListener('click',()=> lightbox.classList.remove('open'));
+
+  let vizActiveTags=new Set();
+  let currentLightboxImageId=null;
+
+  function openLightbox(src, meta, imageId){ 
+    lbImg.src=src; 
+    lbMeta.textContent=meta||''; 
+    currentLightboxImageId=imageId;
+    if(lbDelete) {
+      lbDelete.style.display = imageId ? 'inline-flex' : 'none';
+    }
+    lightbox.classList.add('open'); 
+  }
+
+  qs('#lbDelete')?.addEventListener('click', async ()=>{
+    if(!currentLightboxImageId) return;
+    
+    if(await askConfirm('Delete this image? This cannot be undone.')){
+      const imageIndex = state.images.findIndex(img => img.id === currentLightboxImageId);
+      if(imageIndex > -1){
+        state.images.splice(imageIndex, 1);
+        save();
+        lightbox.classList.remove('open');
+        renderVisualizers();
+      }
+    }
+  });
+
+  function scanPortalImages(){
+    const derived=[];
+    (state.portals||[]).forEach((p,pi)=>{
+      if(!p || !p.sections) return;
+      Object.values(p.sections).forEach(html=>{
+        if(!html) return; 
+        const div=document.createElement('div'); 
+        div.innerHTML=html; 
+        div.querySelectorAll('img').forEach((img,idx)=>{ 
+          const src=img.getAttribute('src'); 
+          if(src){ 
+            derived.push({ 
+              id:`drv_${pi}_${idx}_${Math.random().toString(36).slice(2)}`, 
+              src, 
+              name:`Embedded ${idx+1}`, 
+              portalIndex:pi, 
+              tags:['embedded'], 
+              created:0, 
+              derived:true 
+            }); 
+          } 
+        });
+      });
+    });
+    return derived;
+  }
+
+  function renderVisualizers(){
+    if(!vizContainer) return;
+    vizPortalFilter.innerHTML=''; 
+    const all=document.createElement('option'); 
+    all.value=''; 
+    all.textContent='All portals'; 
+    vizPortalFilter.appendChild(all); 
+    (state.portals||[]).forEach((p,i)=>{ 
+      const o=document.createElement('option'); 
+      o.value=String(i); 
+      o.textContent=p.name||`Portal ${i+1}`; 
+      vizPortalFilter.appendChild(o); 
+    });
+
+    vizTagBar.innerHTML=''; 
+    const allTags = Array.from(new Set((state.images||[]).flatMap(i=>i.tags||[]))).sort((a,b)=> a.localeCompare(b));
+    allTags.forEach(t=>{ 
+      const chip=document.createElement('span'); 
+      chip.className='tag'; 
+      chip.textContent=t; 
+      chip.dataset.tag=t; 
+      if(vizActiveTags.has(t)) chip.classList.add('active'); 
+      chip.onclick=()=>{ 
+        vizActiveTags.has(t)? vizActiveTags.delete(t): vizActiveTags.add(t); 
+        renderVisualizers(); 
+      }; 
+      vizTagBar.appendChild(chip); 
+    });
+
+    const derived = scanPortalImages();
+    const q=(vizSearch?.value||'').toLowerCase().trim(); 
+    const pf=vizPortalFilter?.value||''; 
+    const pfIdx = pf===''? null : parseInt(pf,10);
+
+    const byPortal=new Map();
+    function addToGroup(rec){ 
+      const key = rec.portalIndex!=null? rec.portalIndex : -1; 
+      if(!byPortal.has(key)) byPortal.set(key, []); 
+      byPortal.get(key).push(rec); 
+    }
+
+    (state.images||[]).forEach(img=> addToGroup(img));
+    derived.forEach(img=> addToGroup(img));
+
+    for(const [k,arr] of byPortal.entries()){
+      byPortal.set(k, arr.filter(rec=>{
+        if(pfIdx!==null && (rec.portalIndex??-1)!==pfIdx) return false;
+        if(vizActiveTags.size){ 
+          const set=new Set(rec.tags||[]); 
+          for(const t of vizActiveTags){ 
+            if(!set.has(t)) return false; 
+          } 
+        }
+        if(q){ 
+          const hay=[rec.name||'', ...(rec.tags||[])].join(' ').toLowerCase(); 
+          if(!hay.includes(q)) return false; 
+        }
+        return true;
+      }));
+    }
+
+    vizContainer.innerHTML=''; 
+    let total=0;
+    const keys=[...byPortal.keys()].sort((a,b)=> a-b);
+    keys.forEach(key=>{
+      const items=byPortal.get(key)||[]; 
+      if(!items.length) return; 
+      total+=items.length;
+      const grp=document.createElement('div'); 
+      grp.className='viz-group';
+      const title = key===-1? 'Unassigned' : (state.portals[key]?.name || `Portal ${key+1}`);
+      grp.innerHTML = `<h3>${title} • ${items.length}</h3>`;
+      const grid=document.createElement('div'); 
+      grid.className='viz-grid';
+      items.forEach(it=>{
+        const th=document.createElement('div'); 
+        th.className='viz-thumb'; 
+        th.style.backgroundImage=`url(${it.src})`;
+        const cap=document.createElement('div'); 
+        cap.className='cap'; 
+        cap.textContent=it.name || (it.derived? 'Embedded' : 'Image'); 
+        th.appendChild(cap);
+        th.onclick=()=> openLightbox(it.src, `${title}${it.tags?.length? ' • '+it.tags.join(', '):''}`, it.derived ? null : it.id);
+        grid.appendChild(th);
+      });
+      grp.appendChild(grid); 
+      vizContainer.appendChild(grp);
+    });
+
+    vizEmpty.style.display = total? 'none' : 'grid';
+  }
+
+  vizUploadBtn?.addEventListener('click', ()=>{
+    vizPortalSel.innerHTML=''; 
+    const none=document.createElement('option'); 
+    none.value='-1'; 
+    none.textContent='Unassigned'; 
+    vizPortalSel.appendChild(none); 
+    (state.portals||[]).forEach((p,i)=>{ 
+      const o=document.createElement('option'); 
+      o.value=String(i); 
+      o.textContent=p.name||`Portal ${i+1}`; 
+      vizPortalSel.appendChild(o); 
+    });
+    if(vizFiles) vizFiles.value=''; 
+    if(vizName) vizName.value=''; 
+    if(vizTagsInput) vizTagsInput.value=''; 
+    vizUploadModal.classList.add('open');
+  });
+  
+  qs('#vizCancel')?.addEventListener('click', ()=> vizUploadModal.classList.remove('open'));
+  qs('#vizSave')?.addEventListener('click', ()=>{
+    const files = Array.from(vizFiles.files||[]); 
+    if(!files.length){ 
+      vizUploadModal.classList.remove('open'); 
+      return; 
+    }
+    const prefix=(vizName.value||'').trim(); 
+    const tags=(vizTagsInput.value||'').split(',').map(s=>s.trim()).filter(Boolean);
+    const portalIndex=parseInt(vizPortalSel.value||'-1',10);
+    let pending=files.length; 
+    if(!state.images) state.images=[];
+    files.forEach((f,idx)=>{ 
+      const r=new FileReader(); 
+      r.onload=()=>{ 
+        state.images.push({ 
+          id:uid(), 
+          src:r.result, 
+          name: prefix? `${prefix}${idx+1}` : (f.name||`image_${idx+1}`), 
+          tags:[...tags], 
+          portalIndex: isNaN(portalIndex)? -1 : portalIndex, 
+          created: Date.now() 
+        }); 
+        if(--pending===0){ 
+          save(); 
+          vizUploadModal.classList.remove('open'); 
+          renderVisualizers(); 
+        } 
+      }; 
+      r.readAsDataURL(f); 
+    });
+  });
+
+  vizSearch?.addEventListener('input', ()=> renderVisualizers());
+  vizPortalFilter?.addEventListener('change', ()=> renderVisualizers());
+
+  // ===== Lucid Dreaming System =====
+  let currentDreamEntry = null;
+  let currentGoal = null;
+  let currentTechnique = null;
+  let activeLucidTab = 'dreams';
+
+  function renderLucidDreaming() {
+    initLucidTabs();
+    renderActiveTab();
+  }
+
+  function initLucidTabs() {
+    // Only bind to lucid tabs to avoid conflicts with astral tabs
+    const lucidView = qs('#lucid-view');
+    if(!lucidView) return;
+    
+    lucidView.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.onclick = () => {
+        lucidView.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeLucidTab = btn.dataset.tab;
+        renderActiveTab();
+      };
+    });
+  }
+
+  function renderActiveTab() {
+    document.querySelectorAll('.tab-content').forEach(tab => tab.hidden = true);
+    const activeTab = qs(`#${activeLucidTab}-tab`);
+    if(activeTab) activeTab.hidden = false;
+    
+    if(activeLucidTab === 'dreams') renderDreams();
+    if(activeLucidTab === 'goals') renderGoals();
+    if(activeLucidTab === 'techniques') renderTechniques();
+    if(activeLucidTab === 'progress') renderProgress();
+  }
+
+  function renderDreams() {
+    const list = qs('#dreamList');
+    const empty = qs('#dreamEmpty');
+    
+    if(!list || !empty) return;
+    
+    if(!state.dreams || state.dreams.length === 0) {
+      list.innerHTML = '';
+      empty.style.display = 'block';
+      return;
+    }
+
+    empty.style.display = 'none';
+    const sortedDreams = [...state.dreams].sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    list.innerHTML = '';
+    sortedDreams.forEach(dream => {
+      const div = document.createElement('div');
+      div.className = 'dream-entry';
+      
+      const date = new Date(dream.date);
+      const dateStr = date.toLocaleDateString();
+      const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      
+      const lucidityBadge = dream.lucidity === 'lucid' ? 'lucid' : 
+                           dream.lucidity === 'semi' ? 'semi' : 'normal';
+      
+      div.innerHTML = `
+        <div class="dream-header">
+          <div class="dream-meta">
+            <div class="dream-date" style="font-weight:600">${dream.title || 'Untitled Dream'}</div>
+            <div style="font-size:12px; color:var(--muted)">${dateStr} ${timeStr}</div>
+            <div class="dream-badges">
+              <span class="dream-badge ${lucidityBadge}">${dream.lucidity === 'lucid' ? 'Lucid' : dream.lucidity === 'semi' ? 'Semi-Lucid' : 'Normal'}</span>
+              <span class="dream-badge" style="background:rgba(124,108,255,.1); color:var(--accent)">Vividness: ${dream.vividness}/10</span>
+              ${dream.emotions?.map(e => `<span class="dream-badge" style="background:rgba(139,92,246,.1)">${e}</span>`).join('') || ''}
+            </div>
+          </div>
+          <div class="journal-actions">
+            <button class="btn small" onclick="editDream('${dream.id}')">Edit</button>
+            <button class="btn small" onclick="deleteDream('${dream.id}')">Delete</button>
+          </div>
+        </div>
+        <div class="dream-content">${dream.description || 'No description'}</div>
+        ${dream.tags?.length ? `<div style="margin-top:8px">${dream.tags.map(tag => `<span class="journal-tag">${tag}</span>`).join(' ')}</div>` : ''}
+      `;
+      
+      list.appendChild(div);
+    });
+  }
+
+  // Global functions for dream actions
+  window.editDream = (id) => {
+    const dream = state.dreams.find(d => d.id === id);
+    if(dream) openDreamEditor(dream);
+  };
+
+  window.deleteDream = async (id) => {
+    if(await askConfirm('Delete this dream entry?')) {
+      state.dreams = state.dreams.filter(d => d.id !== id);
+      save();
+      renderDreams();
+    }
+  };
+
+  function renderGoals() {
+    const activeList = qs('#activeGoals');
+    const completedList = qs('#completedGoals');
+    
+    if(!activeList || !completedList) return;
+    
+    activeList.innerHTML = '';
+    completedList.innerHTML = '';
+    
+    (state.lucidGoals || []).forEach(goal => {
+      const div = document.createElement('div');
+      div.className = `goal-item ${goal.completed ? 'completed' : ''}`;
+      
+      div.innerHTML = `
+        <div>
+          <div style="font-weight:600">${goal.title}</div>
+          <div style="font-size:12px; color:var(--muted)">${goal.category} • ${goal.difficulty}</div>
+        </div>
+        <div class="goal-actions">
+          ${!goal.completed ? `<button class="btn small" onclick="completeGoal('${goal.id}')">✓ Complete</button>` : ''}
+          <button class="btn small" onclick="editGoal('${goal.id}')">Edit</button>
+          <button class="btn small" onclick="deleteGoal('${goal.id}')">Delete</button>
+        </div>
+      `;
+      
+      if(goal.completed) {
+        completedList.appendChild(div);
+      } else {
+        activeList.appendChild(div);
+      }
+    });
+    
+    if(!activeList.children.length) {
+      activeList.innerHTML = '<div class="empty" style="padding:20px; text-align:center; color:var(--muted)">No active goals yet</div>';
+    }
+    if(!completedList.children.length) {
+      completedList.innerHTML = '<div class="empty" style="padding:20px; text-align:center; color:var(--muted)">No completed goals yet</div>';
+    }
+  }
+
+  // Global goal functions
+  window.completeGoal = (id) => {
+    const goal = state.lucidGoals.find(g => g.id === id);
+    if(goal) {
+      goal.completed = true;
+      goal.completedDate = new Date().toISOString();
+      save();
+      renderGoals();
+    }
+  };
+
+  window.editGoal = (id) => {
+    const goal = state.lucidGoals.find(g => g.id === id);
+    if(goal) openGoalEditor(goal);
+  };
+
+  window.deleteGoal = async (id) => {
+    if(await askConfirm('Delete this goal?')) {
+      state.lucidGoals = state.lucidGoals.filter(g => g.id !== id);
+      save();
+      renderGoals();
+    }
+  };
+
+  function renderTechniques() {
+    const list = qs('#techniquesList');
+    if(!list) return;
+    
+    list.innerHTML = '';
+    
+    (state.techniques || []).forEach(technique => {
+      const card = document.createElement('div');
+      card.className = 'technique-card';
+      
+      const stars = Array.from({length: 5}, (_, i) => 
+        `<span class="star ${i < technique.rating ? 'filled' : ''}" style="pointer-events:none">★</span>`
+      ).join('');
+      
+      card.innerHTML = `
+        <h4>${technique.name}</h4>
+        <div style="font-size:12px; color:var(--muted); margin-bottom:8px">${technique.type}</div>
+        <div class="technique-rating">${stars}</div>
+        <div style="margin:8px 0">${technique.description}</div>
+        ${technique.notes ? `<div style="font-size:12px; color:var(--muted); border-top:1px solid var(--border); padding-top:8px; margin-top:8px">${technique.notes}</div>` : ''}
+        <div style="display:flex; gap:6px; margin-top:12px">
+          <button class="btn small" onclick="editTechnique('${technique.id}')">Edit</button>
+          <button class="btn small" onclick="deleteTechnique('${technique.id}')">Delete</button>
+        </div>
+      `;
+      
+      list.appendChild(card);
+    });
+    
+    if(!list.children.length) {
+      list.innerHTML = '<div class="empty">No techniques added yet</div>';
+    }
+  }
+
+  // Global technique functions  
+  window.editTechnique = (id) => {
+    const technique = state.techniques.find(t => t.id === id);
+    if(technique) openTechniqueEditor(technique);
+  };
+
+  window.deleteTechnique = async (id) => {
+    if(await askConfirm('Delete this technique?')) {
+      state.techniques = state.techniques.filter(t => t.id !== id);
+      save();
+      renderTechniques();
+    }
+  };
+
+  function renderProgress() {
+    const dreams = state.dreams || [];
+    
+    const recallRate = Math.min(dreams.length * 10, 100);
+    const lucidDreams = dreams.filter(d => d.lucidity === 'lucid' || d.lucidity === 'semi');
+    const lucidityRate = dreams.length ? Math.round((lucidDreams.length / dreams.length) * 100) : 0;
+    const completedGoals = (state.lucidGoals || []).filter(g => g.completed).length;
+    
+    const recallEl = qs('#recallRate');
+    const lucidityEl = qs('#lucidityRate');
+    const goalsEl = qs('#goalsAchieved');
+    const freqEl = qs('#dreamFreq');
+    
+    if(recallEl) recallEl.textContent = `${recallRate}%`;
+    if(lucidityEl) lucidityEl.textContent = `${lucidityRate}%`;
+    if(goalsEl) goalsEl.textContent = completedGoals.toString();
+    if(freqEl) freqEl.textContent = (dreams.length / 4.3).toFixed(1);
+  }
+
+  // Dream modal handlers
+  qs('#newDream')?.addEventListener('click', () => openDreamEditor());
+  qs('#newGoal')?.addEventListener('click', () => openGoalEditor());
+  qs('#newTechnique')?.addEventListener('click', () => openTechniqueEditor());
+
+  function openDreamEditor(dream = null) {
+    currentDreamEntry = dream;
+    const modal = qs('#dreamModal');
+    
+    qs('#dreamTitle').value = dream?.title || '';
+    qs('#dreamDate').value = dream?.date ? toLocalInput(dream.date) : toLocalInput(new Date().toISOString());
+    qs('#dreamLucidity').value = dream?.lucidity || 'normal';
+    qs('#dreamVividness').value = dream?.vividness || 5;
+    qs('#vividnessValue').textContent = dream?.vividness || 5;
+    qs('#dreamDescription').innerHTML = dream?.description || '';
+    qs('#dreamTagsInput').value = (dream?.tags || []).join(', ');
+    
+    // Clear emotion/RC buttons
+    document.querySelectorAll('.emotion-btn, .rc-btn').forEach(btn => btn.classList.remove('active'));
+    
+    modal.classList.add('open');
+  }
+
+  function openGoalEditor(goal = null) {
+    currentGoal = goal;
+    const modal = qs('#goalModal');
+    
+    qs('#goalTitle').value = goal?.title || '';
+    qs('#goalCategory').value = goal?.category || 'exploration';
+    qs('#goalDescription').value = goal?.description || '';
+    qs('#goalDifficulty').value = goal?.difficulty || 'medium';
+    
+    modal.classList.add('open');
+  }
+
+  function openTechniqueEditor(technique = null) {
+    currentTechnique = technique;
+    const modal = qs('#techniqueModal');
+    
+    qs('#techniqueName').value = technique?.name || '';
+    qs('#techniqueType').value = technique?.type || 'induction';
+    qs('#techniqueDescription').value = technique?.description || '';
+    qs('#techniqueNotes').value = technique?.notes || '';
+    
+    // Set star rating
+    const stars = modal.querySelectorAll('.star');
+    stars.forEach((star, i) => {
+      star.classList.toggle('filled', i < (technique?.rating || 0));
+    });
+    
+    modal.classList.add('open');
+  }
+
+  // Modal save handlers
+  qs('#dreamSave')?.addEventListener('click', () => {
+    const dreamData = {
+      id: currentDreamEntry?.id || uid(),
+      title: qs('#dreamTitle').value.trim(),
+      date: new Date(qs('#dreamDate').value).toISOString(),
+      lucidity: qs('#dreamLucidity').value,
+      vividness: parseInt(qs('#dreamVividness').value),
+      description: qs('#dreamDescription').innerHTML,
+      tags: qs('#dreamTagsInput').value.split(',').map(t => t.trim()).filter(Boolean),
+      emotions: Array.from(document.querySelectorAll('.emotion-btn.active')).map(btn => btn.dataset.emotion),
+      realityChecks: Array.from(document.querySelectorAll('.rc-btn.active')).map(btn => btn.dataset.rc),
+      created: currentDreamEntry?.created || Date.now()
+    };
+    
+    if(currentDreamEntry) {
+      const idx = state.dreams.findIndex(d => d.id === currentDreamEntry.id);
+      if(idx > -1) state.dreams[idx] = dreamData;
+    } else {
+      if(!state.dreams) state.dreams = [];
+      state.dreams.push(dreamData);
+    }
+    
+    save();
+    qs('#dreamModal').classList.remove('open');
+    renderDreams();
+  });
+
+  qs('#goalSave')?.addEventListener('click', () => {
+    const goalData = {
+      id: currentGoal?.id || uid(),
+      title: qs('#goalTitle').value.trim(),
+      category: qs('#goalCategory').value,
+      description: qs('#goalDescription').value.trim(),
+      difficulty: qs('#goalDifficulty').value,
+      completed: currentGoal?.completed || false,
+      created: currentGoal?.created || Date.now()
+    };
+    
+    if(currentGoal) {
+      const idx = state.lucidGoals.findIndex(g => g.id === currentGoal.id);
+      if(idx > -1) state.lucidGoals[idx] = goalData;
+    } else {
+      if(!state.lucidGoals) state.lucidGoals = [];
+      state.lucidGoals.push(goalData);
+    }
+    
+    save();
+    qs('#goalModal').classList.remove('open');
+    renderGoals();
+  });
+
+  qs('#techniqueSave')?.addEventListener('click', () => {
+    const rating = document.querySelectorAll('#techniqueRating .star.filled').length;
+    
+    const techniqueData = {
+      id: currentTechnique?.id || uid(),
+      name: qs('#techniqueName').value.trim(),
+      type: qs('#techniqueType').value,
+      description: qs('#techniqueDescription').value.trim(),
+      notes: qs('#techniqueNotes').value.trim(),
+      rating: rating,
+      created: currentTechnique?.created || Date.now()
+    };
+    
+    if(currentTechnique) {
+      const idx = state.techniques.findIndex(t => t.id === currentTechnique.id);
+      if(idx > -1) state.techniques[idx] = techniqueData;
+    } else {
+      if(!state.techniques) state.techniques = [];
+      state.techniques.push(techniqueData);
+    }
+    
+    save();
+    qs('#techniqueModal').classList.remove('open');
+    renderTechniques();
+  });
+
+  // Modal cancel handlers
+  qs('#dreamCancel')?.addEventListener('click', () => qs('#dreamModal').classList.remove('open'));
+  qs('#goalCancel')?.addEventListener('click', () => qs('#goalModal').classList.remove('open'));
+  qs('#techniqueCancel')?.addEventListener('click', () => qs('#techniqueModal').classList.remove('open'));
+
+  // Emotion and RC button handlers
+  document.addEventListener('click', (e) => {
+    if(e.target.matches('.emotion-btn, .rc-btn')) {
+      e.target.classList.toggle('active');
+    }
+  });
+
+  // Star rating handler
+  document.addEventListener('click', (e) => {
+    if(e.target.matches('#techniqueRating .star')) {
+      const rating = parseInt(e.target.dataset.rating);
+      const stars = document.querySelectorAll('#techniqueRating .star');
+      stars.forEach((star, i) => {
+        star.classList.toggle('filled', i < rating);
+      });
+    }
+  });
+
+  // Vividness slider handler
+  qs('#dreamVividness')?.addEventListener('input', (e) => {
+    qs('#vividnessValue').textContent = e.target.value;
+  });
+
+  // ===== Astral Projection System =====
+  let currentProjectionEntry = null;
+  let currentAstralGoal = null;
+  let currentAstralTechnique = null;
+  let activeAstralTab = 'projections';
+
+  function renderAstralProjection() {
+    initAstralTabs();
+    renderActiveAstralTab();
+  }
+
+  function initAstralTabs() {
+    // Only bind to astral tabs to avoid conflicts with lucid tabs
+    const astralView = qs('#astral-view');
+    if(!astralView) return;
+    
+    astralView.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.onclick = () => {
+        astralView.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeAstralTab = btn.dataset.tab;
+        renderActiveAstralTab();
+      };
+    });
+  }
+
+  function renderActiveAstralTab() {
+    const astralView = qs('#astral-view');
+    if(!astralView || astralView.hidden) return;
+    
+    // Hide all astral tab content
+    astralView.querySelectorAll('.tab-content').forEach(tab => tab.hidden = true);
+    
+    // Show the active tab
+    const activeTab = qs(`#${activeAstralTab}-tab`);
+    if(activeTab) {
+      activeTab.hidden = false;
+    } else {
+      console.warn('Could not find astral tab:', activeAstralTab);
+    }
+    
+    // Render the appropriate content
+    if(activeAstralTab === 'projections') renderProjections();
+    if(activeAstralTab === 'astral-goals') renderAstralGoals();
+    if(activeAstralTab === 'astral-techniques') renderAstralTechniques();
+    if(activeAstralTab === 'astral-progress') renderAstralProgress();
+  }
+
+  function renderProjections() {
+    const list = qs('#projectionList');
+    const empty = qs('#projectionEmpty');
+    
+    if(!list || !empty) return;
+    
+    if(!state.projections || state.projections.length === 0) {
+      list.innerHTML = '';
+      empty.style.display = 'block';
+      return;
+    }
+
+    empty.style.display = 'none';
+    const sortedProjections = [...state.projections].sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    list.innerHTML = '';
+    sortedProjections.forEach(projection => {
+      const div = document.createElement('div');
+      div.className = 'projection-entry';
+      
+      const date = new Date(projection.date);
+      const dateStr = date.toLocaleDateString();
+      const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      
+      const typeBadge = projection.type || 'failed';
+      const typeLabel = {
+        'full': 'Full Projection',
+        'partial': 'Partial Projection', 
+        'vibrations': 'Vibrations Only',
+        'failed': 'Failed Attempt'
+      }[typeBadge] || 'Unknown';
+      
+      div.innerHTML = `
+        <div class="projection-header">
+          <div class="projection-meta">
+            <div class="dream-date" style="font-weight:600">${projection.title || 'Untitled Session'}</div>
+            <div style="font-size:12px; color:var(--muted)">${dateStr} ${timeStr}</div>
+            <div class="projection-badges">
+              <span class="projection-badge ${typeBadge}">${typeLabel}</span>
+              <span class="projection-badge" style="background:rgba(124,108,255,.1); color:var(--accent)">Clarity: ${projection.clarity}/10</span>
+              ${projection.duration ? `<span class="projection-badge" style="background:rgba(34,197,94,.1); color:#22c55e">${projection.duration} min</span>` : ''}
+              ${projection.locations?.map(l => `<span class="projection-badge" style="background:rgba(99,102,241,.1)">${l}</span>`).join('') || ''}
+            </div>
+          </div>
+          <div class="journal-actions">
+            <button class="btn small" onclick="editProjection('${projection.id}')">Edit</button>
+            <button class="btn small" onclick="deleteProjection('${projection.id}')">Delete</button>
+          </div>
+        </div>
+        <div class="dream-content">${projection.description || 'No description'}</div>
+        ${projection.tags?.length ? `<div style="margin-top:8px">${projection.tags.map(tag => `<span class="journal-tag">${tag}</span>`).join(' ')}</div>` : ''}
+      `;
+      
+      list.appendChild(div);
+    });
+  }
+
+  // Global functions for projection actions
+  window.editProjection = (id) => {
+    const projection = state.projections.find(p => p.id === id);
+    if(projection) openProjectionEditor(projection);
+  };
+
+  window.deleteProjection = async (id) => {
+    if(await askConfirm('Delete this projection entry?')) {
+      state.projections = state.projections.filter(p => p.id !== id);
+      save();
+      renderProjections();
+    }
+  };
+
+  function renderAstralGoals() {
+    const activeList = qs('#activeAstralGoals');
+    const completedList = qs('#completedAstralGoals');
+    
+    if(!activeList || !completedList) return;
+    
+    activeList.innerHTML = '';
+    completedList.innerHTML = '';
+    
+    (state.astralGoals || []).forEach(goal => {
+      const div = document.createElement('div');
+      div.className = `goal-item ${goal.completed ? 'completed' : ''}`;
+      
+      div.innerHTML = `
+        <div>
+          <div style="font-weight:600">${goal.title}</div>
+          <div style="font-size:12px; color:var(--muted)">${goal.category} • ${goal.difficulty}</div>
+        </div>
+        <div class="goal-actions">
+          ${!goal.completed ? `<button class="btn small" onclick="completeAstralGoal('${goal.id}')">✓ Complete</button>` : ''}
+          <button class="btn small" onclick="editAstralGoal('${goal.id}')">Edit</button>
+          <button class="btn small" onclick="deleteAstralGoal('${goal.id}')">Delete</button>
+        </div>
+      `;
+      
+      if(goal.completed) {
+        completedList.appendChild(div);
+      } else {
+        activeList.appendChild(div);
+      }
+    });
+    
+    if(!activeList.children.length) {
+      activeList.innerHTML = '<div class="empty" style="padding:20px; text-align:center; color:var(--muted)">No active goals yet</div>';
+    }
+    if(!completedList.children.length) {
+      completedList.innerHTML = '<div class="empty" style="padding:20px; text-align:center; color:var(--muted)">No completed goals yet</div>';
+    }
+  }
+
+  // Global astral goal functions
+  window.completeAstralGoal = (id) => {
+    const goal = state.astralGoals.find(g => g.id === id);
+    if(goal) {
+      goal.completed = true;
+      goal.completedDate = new Date().toISOString();
+      save();
+      renderAstralGoals();
+    }
+  };
+
+  window.editAstralGoal = (id) => {
+    const goal = state.astralGoals.find(g => g.id === id);
+    if(goal) openAstralGoalEditor(goal);
+  };
+
+  window.deleteAstralGoal = async (id) => {
+    if(await askConfirm('Delete this goal?')) {
+      state.astralGoals = state.astralGoals.filter(g => g.id !== id);
+      save();
+      renderAstralGoals();
+    }
+  };
+
+  function renderAstralTechniques() {
+    console.log('Rendering astral techniques, count:', state.astralTechniques?.length || 0);
+    const list = qs('#astralTechniquesList');
+    if(!list) {
+      console.warn('Astral techniques list not found');
+      return;
+    }
+    
+    list.innerHTML = '';
+    
+    (state.astralTechniques || []).forEach(technique => {
+      const card = document.createElement('div');
+      card.className = 'technique-card';
+      
+      const stars = Array.from({length: 5}, (_, i) => 
+        `<span class="star ${i < technique.rating ? 'filled' : ''}" style="pointer-events:none">★</span>`
+      ).join('');
+      
+      card.innerHTML = `
+        <h4>${technique.name}</h4>
+        <div style="font-size:12px; color:var(--muted); margin-bottom:8px">${technique.type}</div>
+        <div class="technique-rating">${stars}</div>
+        <div style="margin:8px 0">${technique.description}</div>
+        ${technique.notes ? `<div style="font-size:12px; color:var(--muted); border-top:1px solid var(--border); padding-top:8px; margin-top:8px">${technique.notes}</div>` : ''}
+        <div style="display:flex; gap:6px; margin-top:12px">
+          <button class="btn small" onclick="editAstralTechnique('${technique.id}')">Edit</button>
+          <button class="btn small" onclick="deleteAstralTechnique('${technique.id}')">Delete</button>
+        </div>
+      `;
+      
+      list.appendChild(card);
+    });
+    
+    if(!list.children.length) {
+      list.innerHTML = '<div class="empty">No techniques added yet</div>';
+    }
+  }
+
+  // Global astral technique functions  
+  window.editAstralTechnique = (id) => {
+    const technique = state.astralTechniques.find(t => t.id === id);
+    if(technique) openAstralTechniqueEditor(technique);
+  };
+
+  window.deleteAstralTechnique = async (id) => {
+    if(await askConfirm('Delete this technique?')) {
+      state.astralTechniques = state.astralTechniques.filter(t => t.id !== id);
+      save();
+      renderAstralTechniques();
+    }
+  };
+
+  function renderAstralProgress() {
+    console.log('Rendering astral progress');
+    const projections = state.projections || [];
+    
+    const successfulProjections = projections.filter(p => p.type === 'full' || p.type === 'partial');
+    const successRate = projections.length ? Math.round((successfulProjections.length / projections.length) * 100) : 0;
+    const avgDuration = successfulProjections.length ? 
+      Math.round(successfulProjections.reduce((sum, p) => sum + (p.duration || 0), 0) / successfulProjections.length) : 0;
+    const completedGoals = (state.astralGoals || []).filter(g => g.completed).length;
+    
+    const successEl = qs('#astralSuccessRate');
+    const durationEl = qs('#astralDuration');
+    const goalsEl = qs('#astralGoalsAchieved');
+    const freqEl = qs('#astralFreq');
+    
+    if(successEl) successEl.textContent = `${successRate}%`;
+    if(durationEl) durationEl.textContent = avgDuration.toString();
+    if(goalsEl) goalsEl.textContent = completedGoals.toString();
+    if(freqEl) freqEl.textContent = (projections.length / 4.3).toFixed(1);
+    
+    console.log('Progress stats:', { successRate, avgDuration, completedGoals, projections: projections.length });
+  }
+
+  // Projection modal handlers
+  qs('#newProjection')?.addEventListener('click', () => openProjectionEditor());
+  qs('#newAstralGoal')?.addEventListener('click', () => openAstralGoalEditor());
+  qs('#newAstralTechnique')?.addEventListener('click', () => openAstralTechniqueEditor());
+
+  function openProjectionEditor(projection = null) {
+    currentProjectionEntry = projection;
+    const modal = qs('#projectionModal');
+    
+    qs('#projectionTitle').value = projection?.title || '';
+    qs('#projectionDate').value = projection?.date ? toLocalInput(projection.date) : toLocalInput(new Date().toISOString());
+    qs('#projectionType').value = projection?.type || 'failed';
+    qs('#projectionClarity').value = projection?.clarity || 5;
+    qs('#clarityValue').textContent = projection?.clarity || 5;
+    qs('#projectionDuration').value = projection?.duration || '';
+    qs('#projectionDescription').innerHTML = projection?.description || '';
+    qs('#projectionTagsInput').value = (projection?.tags || []).join(', ');
+    qs('#projectionTechniqueSelect').value = projection?.technique || '';
+    
+    // Clear location buttons
+    document.querySelectorAll('.location-btn').forEach(btn => btn.classList.remove('active'));
+    
+    // Set active locations
+    if(projection?.locations) {
+      projection.locations.forEach(location => {
+        const btn = document.querySelector(`[data-location="${location}"]`);
+        if(btn) btn.classList.add('active');
+      });
+    }
+    
+    modal.classList.add('open');
+  }
+
+  function openAstralGoalEditor(goal = null) {
+    currentAstralGoal = goal;
+    const modal = qs('#astralGoalModal');
+    
+    qs('#astralGoalTitle').value = goal?.title || '';
+    qs('#astralGoalCategory').value = goal?.category || 'exploration';
+    qs('#astralGoalDescription').value = goal?.description || '';
+    qs('#astralGoalDifficulty').value = goal?.difficulty || 'medium';
+    
+    modal.classList.add('open');
+  }
+
+  function openAstralTechniqueEditor(technique = null) {
+    currentAstralTechnique = technique;
+    const modal = qs('#astralTechniqueModal');
+    
+    qs('#astralTechniqueName').value = technique?.name || '';
+    qs('#astralTechniqueType').value = technique?.type || 'exit';
+    qs('#astralTechniqueDescription').value = technique?.description || '';
+    qs('#astralTechniqueNotes').value = technique?.notes || '';
+    
+    // Set star rating
+    const stars = modal.querySelectorAll('.star');
+    stars.forEach((star, i) => {
+      star.classList.toggle('filled', i < (technique?.rating || 0));
+    });
+    
+    modal.classList.add('open');
+  }
+
+  // Astral modal save handlers
+  qs('#projectionSave')?.addEventListener('click', () => {
+    const projectionData = {
+      id: currentProjectionEntry?.id || uid(),
+      title: qs('#projectionTitle').value.trim(),
+      date: new Date(qs('#projectionDate').value).toISOString(),
+      type: qs('#projectionType').value,
+      clarity: parseInt(qs('#projectionClarity').value),
+      duration: parseInt(qs('#projectionDuration').value) || 0,
+      description: qs('#projectionDescription').innerHTML,
+      tags: qs('#projectionTagsInput').value.split(',').map(t => t.trim()).filter(Boolean),
+      locations: Array.from(document.querySelectorAll('.location-btn.active')).map(btn => btn.dataset.location),
+      technique: qs('#projectionTechniqueSelect').value,
+      challenges: Array.from(document.querySelectorAll('.emotion-btn.active[data-challenge]')).map(btn => btn.dataset.challenge),
+      created: currentProjectionEntry?.created || Date.now()
+    };
+    
+    if(currentProjectionEntry) {
+      const idx = state.projections.findIndex(p => p.id === currentProjectionEntry.id);
+      if(idx > -1) state.projections[idx] = projectionData;
+    } else {
+      if(!state.projections) state.projections = [];
+      state.projections.push(projectionData);
+    }
+    
+    save();
+    qs('#projectionModal').classList.remove('open');
+    renderProjections();
+  });
+
+  qs('#astralGoalSave')?.addEventListener('click', () => {
+    const goalData = {
+      id: currentAstralGoal?.id || uid(),
+      title: qs('#astralGoalTitle').value.trim(),
+      category: qs('#astralGoalCategory').value,
+      description: qs('#astralGoalDescription').value.trim(),
+      difficulty: qs('#astralGoalDifficulty').value,
+      completed: currentAstralGoal?.completed || false,
+      created: currentAstralGoal?.created || Date.now()
+    };
+    
+    if(currentAstralGoal) {
+      const idx = state.astralGoals.findIndex(g => g.id === currentAstralGoal.id);
+      if(idx > -1) state.astralGoals[idx] = goalData;
+    } else {
+      if(!state.astralGoals) state.astralGoals = [];
+      state.astralGoals.push(goalData);
+    }
+    
+    save();
+    qs('#astralGoalModal').classList.remove('open');
+    renderAstralGoals();
+  });
+
+  qs('#astralTechniqueSave')?.addEventListener('click', () => {
+    const rating = document.querySelectorAll('#astralTechniqueRating .star.filled').length;
+    
+    const techniqueData = {
+      id: currentAstralTechnique?.id || uid(),
+      name: qs('#astralTechniqueName').value.trim(),
+      type: qs('#astralTechniqueType').value,
+      description: qs('#astralTechniqueDescription').value.trim(),
+      notes: qs('#astralTechniqueNotes').value.trim(),
+      rating: rating,
+      created: currentAstralTechnique?.created || Date.now()
+    };
+    
+    if(currentAstralTechnique) {
+      const idx = state.astralTechniques.findIndex(t => t.id === currentAstralTechnique.id);
+      if(idx > -1) state.astralTechniques[idx] = techniqueData;
+    } else {
+      if(!state.astralTechniques) state.astralTechniques = [];
+      state.astralTechniques.push(techniqueData);
+    }
+    
+    save();
+    qs('#astralTechniqueModal').classList.remove('open');
+    renderAstralTechniques();
+  });
+
+  // Astral modal cancel handlers
+  qs('#projectionCancel')?.addEventListener('click', () => qs('#projectionModal').classList.remove('open'));
+  qs('#astralGoalCancel')?.addEventListener('click', () => qs('#astralGoalModal').classList.remove('open'));
+  qs('#astralTechniqueCancel')?.addEventListener('click', () => qs('#astralTechniqueModal').classList.remove('open'));
+
+  // Location button handlers (for projections)
+  document.addEventListener('click', (e) => {
+    if(e.target.matches('.location-btn')) {
+      e.target.classList.toggle('active');
+    }
+  });
+
+  // Astral star rating handler
+  document.addEventListener('click', (e) => {
+    if(e.target.matches('#astralTechniqueRating .star')) {
+      const rating = parseInt(e.target.dataset.rating);
+      const stars = document.querySelectorAll('#astralTechniqueRating .star');
+      stars.forEach((star, i) => {
+        star.classList.toggle('filled', i < rating);
+      });
+    }
+  });
+
+  // Clarity slider handler
+  qs('#projectionClarity')?.addEventListener('input', (e) => {
+    qs('#clarityValue').textContent = e.target.value;
+  });
+
+  // ===== Dropbox Sync =====
+  async function dropboxApiCall(endpoint, options = {}) {
+    if(!state.sync?.accessToken) {
+      throw new Error('No access token available');
+    }
+    
+    const url = `https://api.dropboxapi.com/2/${endpoint}`;
+    const headers = {
+      'Authorization': `Bearer ${state.sync.accessToken}`,
+      'Content-Type': 'application/json',
+      ...options.headers
+    };
+    
+    const response = await fetch(url, {
+      method: options.method || 'POST',
+      headers,
+      body: options.body
+    });
+    
+    if(!response.ok) {
+      const errorText = await response.text();
+      console.error('Dropbox API Error:', response.status, errorText);
+      
+      if(response.status === 401) {
+        state.sync.accessToken = '';
+        save();
+        throw new Error('Access token expired or invalid');
+      }
+      
+      throw new Error(`Dropbox API error: ${response.status} - ${errorText}`);
+    }
+    
+    return response;
+  }
+  
+  async function dropboxContentApiCall(endpoint, content, filename) {
+    if(!state.sync?.accessToken) {
+      throw new Error('No access token available');
+    }
+    
+    const url = `https://content.dropboxapi.com/2/${endpoint}`;
+    const headers = {
+      'Authorization': `Bearer ${state.sync.accessToken}`,
+      'Content-Type': 'application/octet-stream',
+      'Dropbox-API-Arg': JSON.stringify({
+        path: filename,
+        mode: 'overwrite'
+      })
+    };
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: content
+    });
+    
+    if(!response.ok) {
+      const errorText = await response.text();
+      console.error('Dropbox Content API Error:', response.status, errorText);
+      
+      if(response.status === 401) {
+        state.sync.accessToken = '';
+        save();
+        throw new Error('Access token expired or invalid');
+      }
+      
+      throw new Error(`Dropbox API error: ${response.status} - ${errorText}`);
+    }
+    
+    return response;
+  }
+  
+  function setSyncStatus(msg){ 
+    const el=qs('#syncStatus'); 
+    if(el) el.textContent = 'Status: ' + msg; 
+    console.log('Sync status:', msg);
+  }
+  
+  async function dbxUpload(path, blob){ 
+    try {
+      await dropboxContentApiCall('files/upload', blob, path);
+      return { success: true };
+    } catch(err) {
+      console.error('Upload failed:', err);
+      setSyncStatus('Upload failed: ' + err.message);
+      throw err;
+    }
+  }
+  
+  async function dbxDownload(path){ 
+    if(!state.sync?.accessToken) {
+      throw new Error('No access token available');
+    }
+    
+    const url = 'https://content.dropboxapi.com/2/files/download';
+    const headers = {
+      'Authorization': `Bearer ${state.sync.accessToken}`,
+      'Dropbox-API-Arg': JSON.stringify({ path })
+    };
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers
+    });
+    
+    if(!response.ok) {
+      const errorText = await response.text();
+      console.error('Download failed:', response.status, errorText);
+      
+      if(response.status === 401) {
+        state.sync.accessToken = '';
+        save();
+        throw new Error('Access token expired or invalid');
+      }
+      
+      throw new Error(`Download failed: ${response.status} - ${errorText}`);
+    }
+    
+    return response.blob();
+  }
+  
+  async function syncPush(silent = false){ 
+    try{ 
+      if(!silent) setSyncStatus('Pushing to Dropbox...');
+      
+      if(!state.sync?.accessToken) {
+        throw new Error('No access token - please connect Dropbox first');
+      }
+      
+      const lightState = JSON.parse(JSON.stringify(state));
+      
+      if(lightState.images) {
+        lightState.images = lightState.images.map(img => ({
+          ...img,
+          src: img.src?.startsWith('data:') ? `LOCAL_IMAGE_${img.id}` : img.src
+        }));
+      }
+      
+      const json = JSON.stringify(lightState); 
+      const blob = new Blob([json], {type:'application/json'}); 
+      const path = (state.sync?.path) || '/Apps/DR Script Builder/data.json'; 
+      
+      await dbxUpload(path, blob); 
+      state.sync.lastSync = Date.now(); 
+      localStorage.setItem(storeKey, JSON.stringify(state));
+      if(!silent) setSyncStatus('Pushed at ' + new Date(state.sync.lastSync).toLocaleString()); 
+    }catch(err){ 
+      console.error('Push failed:', err); 
+      if(!silent) setSyncStatus('Push failed: ' + err.message); 
+      throw err;
+    } 
+  }
+  
+  async function syncPull(){ 
+    try{ 
+      setSyncStatus('Pulling from Dropbox...');
+      
+      if(!state.sync?.accessToken) {
+        throw new Error('No access token - please connect Dropbox first');
+      }
+      
+      const path = (state.sync?.path) || '/Apps/DR Script Builder/data.json'; 
+      const file = await dbxDownload(path); 
+      const text = await file.text(); 
+      const incoming = JSON.parse(text); 
+      
+      if(incoming.images) {
+        const localState = load();
+        const localImageMap = new Map();
+        if(localState?.images) {
+          localState.images.forEach(img => localImageMap.set(img.id, img.src));
+        }
+        
+        incoming.images = incoming.images.map(img => ({
+          ...img,
+          src: img.src?.startsWith('LOCAL_IMAGE_') ? 
+            (localImageMap.get(img.id) || img.src) : img.src
+        }));
+      }
+      
+      state = incoming; 
+      localStorage.setItem(storeKey, JSON.stringify(state));
+      setSyncStatus('Pulled at ' + new Date().toLocaleString()); 
+      renderAll(); 
+    }catch(err){ 
+      console.error('Pull failed:', err); 
+      setSyncStatus('Pull failed: ' + err.message); 
+      throw err;
+    } 
+  }
+
+  async function startOAuth(){ 
+    try{ 
+      const appKey=(qs('#dbxAppKey')?.value||'').trim(); 
+      if(!appKey){ 
+        alert('Please enter your Dropbox App Key first.'); 
+        return; 
+      }
+      
+      state.sync.appKey = appKey;
+      state.sync.provider = 'dropbox';
+      save();
+      
+      const redirect = encodeURIComponent(window.location.origin + window.location.pathname);
+      const authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${appKey}&response_type=token&redirect_uri=${redirect}`;
+      
+      setSyncStatus('Redirecting to Dropbox for authorization...');
+      window.location.href = authUrl;
+    }catch(err){ 
+      console.error('OAuth start failed:', err); 
+      setSyncStatus('OAuth failed: ' + (err?.message || err));
+      alert('OAuth start failed: '+(err?.message||err)); 
+    } 
+  }
+  
+  function tryParseImplicitToken(){ 
+    try{ 
+      if(window.location.hash && window.location.hash.includes('access_token=')){ 
+        const params=new URLSearchParams(window.location.hash.slice(1)); 
+        const token=params.get('access_token'); 
+        if(token){ 
+          state.sync.accessToken=token; 
+          state.sync.provider='dropbox'; 
+          save(); 
+          window.history.replaceState({}, document.title, window.location.pathname+window.location.search); 
+          setSyncStatus('Connected via OAuth'); 
+          return true; 
+        } 
+      } 
+    }catch(err){
+      console.error('Token parsing failed:', err);
+    } 
+    return false; 
+  }
+
+  function renderSettings(){ 
+    const s=state.sync||{}; 
+    const appKeyEl=qs('#dbxAppKey'); 
+    const tokEl=qs('#dbxAccessToken'); 
+    const pathEl=qs('#dbxPath'); 
+    const autoEl=qs('#autoSyncToggle'); 
+    const minsEl=qs('#autoSyncMins'); 
+    if(appKeyEl) appKeyEl.value=s.appKey||''; 
+    if(tokEl) tokEl.value=s.accessToken||''; 
+    if(pathEl) pathEl.value=s.path||'/Apps/DR Script Builder/data.json'; 
+    if(autoEl) autoEl.checked=!!s.auto; 
+    if(minsEl) minsEl.value=String(s.intervalMins||5); 
+    setSyncStatus(s.accessToken? 'Connected' : 'Not connected'); 
+  }
+  
+  function attachSettingsHandlers(){
+    qs('#dbxConnect')?.addEventListener('click', ()=>{ 
+      const appKey = (qs('#dbxAppKey')?.value||'').trim();
+      if(!appKey) {
+        alert('Please enter your Dropbox App Key first.');
+        return;
+      }
+      startOAuth(); 
+    });
+    
+    qs('#dbxSaveToken')?.addEventListener('click', ()=>{ 
+      const t=(qs('#dbxAccessToken')?.value||'').trim(); 
+      if(!t){ 
+        alert('Paste an access token first'); 
+        return; 
+      }
+      
+      state.sync.accessToken=t; 
+      state.sync.provider='dropbox'; 
+      state.sync.appKey=(qs('#dbxAppKey')?.value||'').trim(); 
+      state.sync.path=(qs('#dbxPath')?.value||'/Apps/DR Script Builder/data.json'); 
+      save(); 
+      
+      testDropboxConnection();
+    });
+    
+    qs('#dbxDisconnect')?.addEventListener('click', ()=>{ 
+      state.sync.accessToken=''; 
+      save(); 
+      setSyncStatus('Disconnected'); 
+    });
+    qs('#dbxPath')?.addEventListener('change', e=>{ 
+      state.sync.path=e.target.value; 
+      save(); 
+    });
+    qs('#autoSyncToggle')?.addEventListener('change', e=>{ 
+      state.sync.auto=!!e.target.checked; 
+      save(); 
+      setupAutoSync(); 
+    });
+    qs('#autoSyncMins')?.addEventListener('change', e=>{ 
+      const n=parseInt(e.target.value,10); 
+      state.sync.intervalMins=isNaN(n)?5:Math.max(1,n); 
+      save(); 
+      setupAutoSync(); 
+    });
+    qs('#syncNow')?.addEventListener('click', ()=>{ 
+      if(!state.sync?.accessToken){ 
+        alert('Connect Dropbox first.'); 
+        return; 
+      } 
+      syncPush(false); 
+    });
+    qs('#pullNow')?.addEventListener('click', ()=>{ 
+      if(!state.sync?.accessToken){ 
+        alert('Connect Dropbox first.'); 
+        return; 
+      } 
+      syncPull(); 
+    });
+    qs('#testConnection')?.addEventListener('click', ()=>{ 
+      testDropboxConnection(); 
+    });
+  }
+  
+  async function testDropboxConnection() {
+    try {
+      setSyncStatus('Testing connection...');
+      
+      if(!state.sync?.accessToken) {
+        setSyncStatus('Failed: No access token');
+        return;
+      }
+      
+      const response = await dropboxApiCall('users/get_current_account');
+      const result = await response.json();
+      
+      setSyncStatus(`Connected successfully as ${result.name.display_name}`);
+      
+    } catch(err) {
+      console.error('Connection test failed:', err);
+      setSyncStatus(`Failed: ${err.message}`);
+    }
+  }
+  
+  let autoTimer=null; 
+  function setupAutoSync(){ 
+    if(autoTimer){ 
+      clearInterval(autoTimer); 
+      autoTimer=null; 
+    } 
+    if(state.sync?.auto && state.sync?.accessToken){ 
+      autoTimer=setInterval(()=>{ 
+        syncPush(true).catch(err => console.warn('Auto-sync failed:', err)); 
+      }, Math.max(1, state.sync.intervalMins||5)*60*1000); 
+    } 
+  }
+
+  // Export/Import functionality
+  async function doExportAll(){
+    try{
+      const json = JSON.stringify(state, null, 2);
+      if(window.showSaveFilePicker){
+        const handle = await window.showSaveFilePicker({
+          suggestedName: 'dr-script-builder-data.json',
+          types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
+        });
+        const writable = await handle.createWritable();
+        await writable.write(new Blob([json], { type: 'application/json;charset=utf-8' }));
+        await writable.close();
+        setSyncStatus('Exported to chosen file');
+        return;
+      }
+
+      const isFirefox = typeof navigator!=='undefined' && /firefox/i.test(navigator.userAgent);
+      if(isFirefox){
+        const dataUrl = 'data:application/json;charset=utf-8,' + encodeURIComponent(json);
+        const win = window.open(dataUrl, '_blank');
+        if(win){ 
+          setSyncStatus('Opened JSON in a new tab (use Save Page As…)'); 
+          return; 
+        }
+      }
+
+      const blob = new Blob([json], {type:'application/json;charset=utf-8'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; 
+      a.download = 'dr-script-builder-data.json'; 
+      a.rel='noopener';
+      document.body.appendChild(a);
+      a.dispatchEvent(new MouseEvent('click', {bubbles:true, cancelable:true, view:window}));
+      setTimeout(()=>{ 
+        a.remove(); 
+        URL.revokeObjectURL(url); 
+      }, 1500);
+      setSyncStatus('Exported as download');
+    }catch(err){ 
+      console.error('Export failed', err); 
+      alert('Export failed: '+(err?.message||err)); 
+    }
+  }
+  
+  qs('#exportAll')?.addEventListener('click', ()=>{ doExportAll(); });
+  qs('#importBtn')?.addEventListener('click', ()=> qs('#importFile')?.click());
+  qs('#importFile')?.addEventListener('change', (e)=>{
+    const f = e.target.files?.[0]; 
+    if(!f) return;
+    const r = new FileReader();
+    r.onload = ()=>{
+      try{
+        const incoming = JSON.parse(r.result);
+        if(!incoming || typeof incoming!=='object') throw new Error('Invalid JSON');
+        state = incoming;
+        save();
+        renderAll();
+        setSyncStatus('Imported local file');
+      }catch(err){ 
+        console.error('Import failed', err); 
+        alert('Import failed: '+(err?.message||err)); 
+      }
+    };
+    r.readAsText(f);
+    e.target.value='';
+  });
+
+  // ===== Boot =====
+  function renderAll(){ 
+    renderPortals(); 
+    renderJournal(); 
+    renderWR(); 
+    renderPlaylists(); 
+    renderVisualizers();
+    if(views.settings && !views.settings.hidden){ 
+      renderSettings(); 
+    } 
+    if(views.lucid && !views.lucid.hidden){ 
+      renderLucidDreaming(); 
+    } 
+    if(views.astral && !views.astral.hidden){ 
+      renderAstralProjection(); 
+    } 
+  }
+  
+  Object.keys(views).forEach(k=>{ 
+    if(views[k]) views[k].hidden = (k!=='portals'); 
+  });
+  
+  tryParseImplicitToken();
+  renderAll();
+  attachSettingsHandlers();
+  setupAutoSync();
+
+  console.log('DR Script Builder loaded successfully');
+</script>
+</body>
+</html>
