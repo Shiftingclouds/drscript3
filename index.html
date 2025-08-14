@@ -537,7 +537,7 @@
   </div>
 </div>
 
-<div class="modal" id="portalSummaryModal" aria-hidden="true">
+<div class="modal" id="portalSummaryModal" aria-hidden="true" aria-modal="true" role="dialog">
   <div id="portalSummaryCard" class="modal-card" style="width:min(720px,95vw); max-height:90vh; overflow-y:auto"></div>
 </div>
 
@@ -1326,11 +1326,39 @@
     const close=document.createElement('button');
     close.className='btn primary';
     close.textContent='Close';
-    close.onclick=()=>modal.classList.remove('open');
+
+    // Close modal helper
+    const hide=()=>{
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.removeEventListener('keydown', handleKeydown);
+    };
+    close.onclick=hide;
     actions.appendChild(close);
     card.appendChild(actions);
 
     modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+
+    // Focus management
+    const focusable=modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    focusable[0]?.focus();
+
+    function handleKeydown(e){
+      if(e.key==='Escape') hide();
+      if(e.key==='Tab' && focusable.length){
+        const first=focusable[0];
+        const last=focusable[focusable.length-1];
+        if(e.shiftKey && document.activeElement===first){
+          e.preventDefault();
+          last.focus();
+        }else if(!e.shiftKey && document.activeElement===last){
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    }
+    document.addEventListener('keydown', handleKeydown);
   }
 
   // Create Portal Modal
