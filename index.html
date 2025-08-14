@@ -537,6 +537,10 @@
   </div>
 </div>
 
+<div class="modal" id="portalSummaryModal" aria-hidden="true">
+  <div id="portalSummaryCard" class="modal-card" style="width:min(720px,95vw); max-height:90vh; overflow-y:auto"></div>
+</div>
+
 <div class="modal" id="wrModal" aria-hidden="true">
   <div class="modal-card">
     <h3 id="wrModalTitle" style="margin:0 0 8px">Edit Waiting Room</h3>
@@ -1102,11 +1106,13 @@
   let lastX=0, lastY=0;
   let startPinchDist=0;
   let startScale=1;
+  let dragMoved=false;
 
   portalCanvas.addEventListener('pointerdown',e=>{
     activePointers.set(e.pointerId,e);
     if(activePointers.size===1){
       isDragging=true;
+      dragMoved=false;
       lastX=e.clientX;
       lastY=e.clientY;
     }else if(activePointers.size===2){
@@ -1114,6 +1120,7 @@
       startPinchDist=Math.hypot(p1.clientX-p2.clientX,p1.clientY-p2.clientY);
       startScale=scale;
       isDragging=false;
+      dragMoved=true;
     }
     portalCanvas.setPointerCapture(e.pointerId);
   });
@@ -1124,6 +1131,7 @@
     if(isDragging && activePointers.size===1){
       const dx=e.clientX-lastX;
       const dy=e.clientY-lastY;
+      if(Math.abs(dx)>3 || Math.abs(dy)>3) dragMoved=true;
       offsetX+=dx;
       offsetY+=dy;
       lastX=e.clientX;
@@ -1139,6 +1147,17 @@
   });
 
   function endPointer(e){
+    if(e.type==='pointerup' && !dragMoved){
+      const rect=portalCanvas.getBoundingClientRect();
+      const x=(e.clientX-rect.left-offsetX)/scale;
+      const y=(e.clientY-rect.top-offsetY)/scale;
+      portalSceneObjs.some((o,idx)=>{
+        if(Math.hypot(o.x-x,o.y-y)<o.r){
+          showPortalSummary(idx);
+          return true;
+        }
+      });
+    }
     activePointers.delete(e.pointerId);
     if(activePointers.size===0){
       isDragging=false;
@@ -1249,6 +1268,56 @@
 
     qs('#portalEmpty').style.display = (state.portals||[]).length? 'none' : 'grid';
     renderPortalScene();
+  }
+
+  function showPortalSummary(idx){
+    const p=state.portals?.[idx];
+    if(!p) return;
+    const modal=qs('#portalSummaryModal');
+    const card=qs('#portalSummaryCard');
+    card.innerHTML='';
+
+    const title=document.createElement('h3');
+    title.style.margin='0 0 10px';
+    title.textContent=p.name||'Portal';
+    card.appendChild(title);
+
+    if(p.cover){
+      const img=document.createElement('img');
+      img.src=p.cover;
+      img.alt=p.name||'';
+      img.style.width='100%';
+      img.style.borderRadius='12px';
+      img.style.marginBottom='12px';
+      card.appendChild(img);
+    }
+
+    const wrap=document.createElement('div');
+    wrap.style.display='grid';
+    wrap.style.gap='12px';
+    (p.order||Object.keys(p.sections||{})).forEach(sec=>{
+      const section=document.createElement('section');
+      const h=document.createElement('h4');
+      h.textContent=sec;
+      h.style.margin='8px 0';
+      section.appendChild(h);
+      const body=document.createElement('div');
+      body.innerHTML=p.sections?.[sec]||'';
+      section.appendChild(body);
+      wrap.appendChild(section);
+    });
+    card.appendChild(wrap);
+
+    const actions=document.createElement('div');
+    actions.className='actions';
+    const close=document.createElement('button');
+    close.className='btn primary';
+    close.textContent='Close';
+    close.onclick=()=>modal.classList.remove('open');
+    actions.appendChild(close);
+    card.appendChild(actions);
+
+    modal.classList.add('open');
   }
 
   // Create Portal Modal
