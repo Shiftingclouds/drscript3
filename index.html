@@ -1180,15 +1180,15 @@
     scale=Math.min(5,Math.max(0.2,scale));
   },{passive:false});
 
-  function resizePortalCanvas(){
-    portalCanvas.width=window.innerWidth;
-    portalCanvas.height=window.innerHeight;
+  function sizePortalCanvas(){
+    portalCanvas.width=portalCanvas.clientWidth;
+    portalCanvas.height=portalCanvas.clientHeight;
   }
 
-  window.addEventListener('resize',resizePortalCanvas);
+  window.addEventListener('resize',sizePortalCanvas);
 
   async function renderPortalScene(){
-    resizePortalCanvas();
+    sizePortalCanvas();
     portalSceneObjs=(state.portals||[]).map(p=>{
       const obj={
         x:Math.random()*portalCanvas.width,
