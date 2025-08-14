@@ -1407,7 +1407,6 @@ if (src) {
   }
 }
 
-      }
       return obj;
     });
 
@@ -1486,10 +1485,6 @@ if (img) {
 
 portalCtx.restore(); // end circular clip
 
-        }else{
-          portalCtx.fillStyle=o.color;
-          portalCtx.fillRect(o.x-o.r,o.y-o.r,o.r*2,o.r*2);
-        }
         // soften edges into background
         const fade=portalCtx.createRadialGradient(o.x,o.y,o.r*0.8,o.x,o.y,o.r);
         fade.addColorStop(0,'rgba(0,0,0,0)');
