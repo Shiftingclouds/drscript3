@@ -21,7 +21,7 @@
   html,body{height:100%}
   body{margin:0; color:var(--ink); background:radial-gradient(1200px 800px at 10% -10%, rgba(124,108,255,.08), transparent 55%), radial-gradient(900px 700px at 110% 20%, rgba(139,92,246,.06), transparent 60%), var(--bg-primary); font:400 16px/1.6 Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial}
 
-  .app{display:grid; grid-template-columns:280px 1fr; min-height:100vh}
+  .app{display:grid; grid-template-columns:280px 1fr; min-height:100vh; transition:opacity .5s}
 
   /* Sidebar */
   .side{background:linear-gradient(180deg, var(--bg-elev), var(--bg-primary)); border-right:1px solid var(--border); padding:22px 16px; position:sticky; top:0; height:100vh; overflow:auto}
@@ -180,6 +180,9 @@
   .viz-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr)); gap:12px}
   .viz-thumb{position:relative; width:100%; padding-top:100%; border:1px solid var(--border); border-radius:14px; background:#111317 center/cover no-repeat; cursor:pointer; overflow:hidden}
   .viz-thumb .cap{position:absolute; inset:auto 0 0 0; padding:6px 8px; background:linear-gradient(180deg, transparent, rgba(0,0,0,.55)); font-size:12px}
+  #launchScene{position:fixed; inset:0; background:#000; transition:opacity .5s}
+  #launchScene canvas{position:absolute; top:0; left:0; width:100%; height:100%}
+  #enterApp{position:absolute; left:50%; bottom:20px; transform:translateX(-50%); z-index:1000}
 </style>
 </head>
 <body>
