@@ -181,37 +181,53 @@
   .viz-thumb{position:relative; width:100%; padding-top:100%; border:1px solid var(--border); border-radius:14px; background:#111317 center/cover no-repeat; cursor:pointer; overflow:hidden}
   .viz-thumb .cap{position:absolute; inset:auto 0 0 0; padding:6px 8px; background:linear-gradient(180deg, transparent, rgba(0,0,0,.55)); font-size:12px}
   #launchScene{position:fixed; inset:0; background:#000; transition:opacity .5s}
-  #launchScene canvas{position:absolute; top:0; left:0; width:100%; height:100%}
-  #enterApp{
-    position:absolute;
-    left:50%;
-    bottom:20px;
-    transform:translateX(-50%);
-    z-index:1000;
-    padding:14px 32px;
-    border:none;
-    border-radius:999px;
-    background:linear-gradient(135deg, var(--accent), var(--accent-2));
-    color:#fff;
-    font-size:16px;
-    font-weight:600;
-    cursor:pointer;
-    box-shadow:0 0 12px rgba(124,108,255,.4);
-    transition:background .3s, transform .2s, box-shadow .3s;
-    touch-action:manipulation;
-  }
-  #enterApp:hover,
-  #enterApp:focus{
-    animation:enterPulse 1.2s ease-in-out alternate infinite;
-  }
-  #enterApp:active{
-    transform:translateX(-50%) scale(.97);
-    box-shadow:0 0 10px rgba(124,108,255,.5);
-  }
-  @keyframes enterPulse{
-    from{transform:translateX(-50%) scale(1); box-shadow:0 0 12px rgba(124,108,255,.4);}
-    to{transform:translateX(-50%) scale(1.05); box-shadow:0 0 18px rgba(124,108,255,.6);}
-  }
+/* Launch scene canvas with subtle orb glow */
+#launchScene canvas{
+  position:absolute;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  /* subtle glow and shadow around orbs */
+  filter: drop-shadow(0 0 6px rgba(255,255,255,.15))
+          drop-shadow(0 2px 4px rgba(0,0,0,.6));
+}
+
+/* Enter App button: centered, styled, animated */
+#enterApp{
+  position:absolute;
+  left:50%;
+  bottom:20px;
+  transform:translateX(-50%);
+  z-index:1000;
+  padding:14px 32px;
+  border:none;
+  border-radius:999px;
+  background:linear-gradient(135deg, var(--accent), var(--accent-2));
+  color:#fff;
+  font-size:16px;
+  font-weight:600;
+  cursor:pointer;
+  box-shadow:0 0 12px rgba(124,108,255,.4);
+  transition:background .3s, transform .2s, box-shadow .3s;
+  touch-action:manipulation;
+}
+
+#enterApp:hover,
+#enterApp:focus{
+  animation:enterPulse 1.2s ease-in-out alternate infinite;
+}
+
+#enterApp:active{
+  transform:translateX(-50%) scale(.97);
+  box-shadow:0 0 10px rgba(124,108,255,.5);
+}
+
+@keyframes enterPulse{
+  from{ transform:translateX(-50%) scale(1);   box-shadow:0 0 12px rgba(124,108,255,.4); }
+  to  { transform:translateX(-50%) scale(1.05); box-shadow:0 0 18px rgba(124,108,255,.6); }
+}
+
 </style>
 </head>
 <body>
@@ -1313,14 +1329,51 @@ const loadPromises = [];
       portalCtx.translate(offsetX,offsetY);
       portalCtx.scale(scale,scale);
       portalSceneObjs.forEach(o=>{
+        // drop shadow behind orb
+        portalCtx.save();
+        portalCtx.shadowColor='rgba(0,0,0,0.5)';
+        portalCtx.shadowBlur=10;
+        portalCtx.shadowOffsetX=0;
+        portalCtx.shadowOffsetY=2;
+        portalCtx.beginPath();
+        portalCtx.arc(o.x,o.y,o.r,0,Math.PI*2);
+        portalCtx.fillStyle='rgba(0,0,0,0)';
+        portalCtx.fill();
+        portalCtx.restore();
+
+        // draw orb with circular mask
+        portalCtx.save();
+        portalCtx.beginPath();
+        portalCtx.arc(o.x,o.y,o.r,0,Math.PI*2);
+        portalCtx.clip();
         if(o.cover){
           portalCtx.drawImage(o.cover,o.x-o.r,o.y-o.r,o.r*2,o.r*2);
         }else{
           portalCtx.fillStyle=o.color;
-          portalCtx.beginPath();
-          portalCtx.arc(o.x,o.y,o.r,0,Math.PI*2);
-          portalCtx.fill();
+          portalCtx.fillRect(o.x-o.r,o.y-o.r,o.r*2,o.r*2);
         }
+        // soften edges into background
+        const fade=portalCtx.createRadialGradient(o.x,o.y,o.r*0.8,o.x,o.y,o.r);
+        fade.addColorStop(0,'rgba(0,0,0,0)');
+        fade.addColorStop(1,'rgba(0,0,0,1)');
+        portalCtx.globalCompositeOperation='destination-out';
+        portalCtx.fillStyle=fade;
+        portalCtx.beginPath();
+        portalCtx.arc(o.x,o.y,o.r,0,Math.PI*2);
+        portalCtx.fill();
+        portalCtx.globalCompositeOperation='source-over';
+        portalCtx.restore();
+
+        // outer glow
+        portalCtx.save();
+        portalCtx.shadowColor='rgba(255,255,255,0.6)';
+        portalCtx.shadowBlur=15;
+        portalCtx.beginPath();
+        portalCtx.arc(o.x,o.y,o.r,0,Math.PI*2);
+        portalCtx.strokeStyle='rgba(255,255,255,0.2)';
+        portalCtx.lineWidth=2;
+        portalCtx.stroke();
+        portalCtx.restore();
       });
       portalCtx.restore();
       requestAnimationFrame(draw);
