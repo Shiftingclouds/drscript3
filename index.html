@@ -1112,6 +1112,8 @@
   const portalCtx=portalCanvas.getContext('2d');
   let portalSceneObjs=[];
   let offsetX=0, offsetY=0, scale=1;
+  let dpr = window.devicePixelRatio || 1;
+  const imageCache = new Map();
 
   portalCanvas.style.touchAction='none';
   const activePointers=new Map();
@@ -1194,8 +1196,13 @@
   },{passive:false});
 
   function sizePortalCanvas(){
-    portalCanvas.width=portalCanvas.clientWidth;
-    portalCanvas.height=portalCanvas.clientHeight;
+    const rect = portalCanvas.getBoundingClientRect();
+    dpr = window.devicePixelRatio || 1;
+    portalCanvas.width = rect.width * dpr;
+    portalCanvas.height = rect.height * dpr;
+    portalCanvas.style.width = `${rect.width}px`;
+    portalCanvas.style.height = `${rect.height}px`;
+    portalCtx.setTransform(dpr,0,0,dpr,0,0);
   }
 
   window.addEventListener('resize',sizePortalCanvas);
@@ -1216,13 +1223,19 @@ const loadPromises = [];
         cover:null
       };
       if(p.cover){
-        const img=new Image();
-        obj.cover=img;
-        loadPromises.push(new Promise(res=>{
-          img.onload=()=>res();
-          img.onerror=()=>{ obj.cover=null; res(); };
-        }));
-        img.src=p.cover;
+        let img = imageCache.get(p.cover);
+        if(!img){
+          img = new Image();
+          imageCache.set(p.cover, img);
+          img.src = p.cover;
+        }
+        obj.cover = img;
+        if(!img.complete){
+          loadPromises.push(new Promise(res=>{
+            img.onload=()=>res();
+            img.onerror=()=>{ imageCache.delete(p.cover); obj.cover=null; res(); };
+          }));
+        }
       }
       return obj;
     });
@@ -1230,8 +1243,10 @@ const loadPromises = [];
     await Promise.all(loadPromises);
 
     function draw(){
+      portalCtx.setTransform(1,0,0,1,0,0);
       portalCtx.clearRect(0,0,portalCanvas.width,portalCanvas.height);
-      portalCtx.save();
+
+      portalCtx.setTransform(dpr,0,0,dpr,0,0);
       portalCtx.translate(offsetX,offsetY);
       portalCtx.scale(scale,scale);
       portalSceneObjs.forEach(o=>{
@@ -1244,7 +1259,6 @@ const loadPromises = [];
           portalCtx.fill();
         }
       });
-      portalCtx.restore();
       requestAnimationFrame(draw);
     }
     requestAnimationFrame(draw);
