@@ -3791,15 +3791,32 @@
     } 
   }
   
-  Object.keys(views).forEach(k=>{ 
-    if(views[k]) views[k].hidden = (k!=='portals'); 
+  Object.keys(views).forEach(k=>{
+    if(views[k]) views[k].hidden = (k!=='portals');
   });
-  
+
   tryParseImplicitToken();
-  renderAll();
   renderPortalScene();
   attachSettingsHandlers();
   setupAutoSync();
+
+  qs('#enterApp')?.addEventListener('click', () => {
+    const launch = qs('#launchScene');
+    const app = qs('.app');
+    if(!launch || !app) return;
+
+    app.style.display = 'grid';
+    app.style.opacity = '0';
+    requestAnimationFrame(() => {
+      app.style.opacity = '1';
+    });
+
+    launch.style.opacity = '0';
+    launch.addEventListener('transitionend', () => {
+      launch.style.display = 'none';
+      renderAll();
+    }, { once: true });
+  });
 
   console.log('DR Script Builder loaded successfully');
 </script>
