@@ -2074,19 +2074,35 @@
         if(!html) return; 
         const div=document.createElement('div'); 
         div.innerHTML=html; 
-        div.querySelectorAll('img').forEach((img,idx)=>{ 
-          const src=img.getAttribute('src'); 
-          if(src){ 
-            derived.push({ 
-              id:`drv_${pi}_${idx}_${Math.random().toString(36).slice(2)}`, 
-              src, 
-              name:`Embedded ${idx+1}`, 
-              portalIndex:pi, 
-              tags:['embedded'], 
-              created:0, 
-              derived:true 
-            }); 
-          } 
+        div.querySelectorAll('img').forEach((img,idx)=>{
+          const src=img.getAttribute('src');
+          if(src){
+            derived.push({
+              id:`drv_${pi}_${idx}_${Math.random().toString(36).slice(2)}`,
+              src,
+              name:`Embedded ${idx+1}`,
+              portalIndex:pi,
+              tags:['embedded'],
+              created:0,
+              derived:true
+            });
+          }
+        });
+        div.querySelectorAll('video, iframe').forEach((med,idx)=>{
+          const src=med.getAttribute('src');
+          if(src){
+            derived.push({
+              id:`drv_${pi}_${idx}_${Math.random().toString(36).slice(2)}`,
+              src,
+              name:`Embedded Video ${idx+1}`,
+              portalIndex:pi,
+              tags:['embedded'],
+              created:0,
+              derived:true,
+              type:'video',
+              tag: med.tagName.toLowerCase()
+            });
+          }
         });
       });
     });
@@ -2176,39 +2192,49 @@ derived.forEach(img => addToGroup({ ...img, type: 'image' }));
         const th=document.createElement('div');
         th.className='viz-thumb';
 if (it.type === 'video' || it.video) {
-  const vid = document.createElement('video');
-  vid.src = it.src;
-  vid.muted = true;
-  vid.controls = true;
-  vid.style.width = '100%';
-  vid.style.height = '100%';
-  vid.style.objectFit = 'cover';
-  vid.style.position = 'absolute';
-  vid.style.inset = '0';
-  if (it.poster) vid.poster = it.poster;
-  th.appendChild(vid);
+  let media;
+  if (it.tag === 'iframe') {
+    media = document.createElement('iframe');
+    media.src = it.src;
+    media.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+    media.style.border = '0';
+  } else {
+    media = document.createElement('video');
+    media.src = it.src;
+    media.controls = true;
+    media.muted = true; // keeps inline autoplay quiet if you enable it later
+    if (it.poster) media.poster = it.poster;
+  }
+  media.style.position = 'absolute';
+  media.style.inset = '0';
+  media.style.width = '100%';
+  media.style.height = '100%';
+  media.style.objectFit = 'cover';
+  th.appendChild(media);
   th.style.cursor = 'default';
   th.onclick = () => window.open(it.src, '_blank');
+} else {
+  th.style.backgroundImage = `url(${it.src})`;
+  th.onclick = () =>
+    openLightbox(
+      it.src,
+      `${title}${it.tags?.length ? ' • ' + it.tags.join(', ') : ''}`,
+      it.derived ? null : it.id
+    );
 }
 
-        }else{
-          th.style.backgroundImage=`url(${it.src})`;
-          th.onclick=()=> openLightbox(it.src, `${title}${it.tags?.length? ' • '+it.tags.join(', '):''}`, it.derived ? null : it.id);
-        }
-        const cap=document.createElement('div');
-        cap.className='cap';
-cap.textContent = it.name || (it.derived ? 'Embedded' : ((it.type === 'video' || it.video) ? 'Video' : 'Image'));
-
-        th.appendChild(cap);
-th.onclick = () => openLightbox(
-  it.src,
-  `${title}${it.tags?.length ? ' • ' + it.tags.join(', ') : ''}`,
-  it.derived ? null : it.id,
-  'image'
-);
+const cap = document.createElement('div');
+cap.className = 'cap';
+cap.textContent =
+  it.name ||
+  (it.derived
+    ? ((it.type === 'video' || it.video) ? 'Embedded Video' : 'Embedded')
+    : ((it.type === 'video' || it.video) ? 'Video' : 'Image'));
+th.appendChild(cap);
+        
         grid.appendChild(th);
       });
-      grp.appendChild(grid); 
+      grp.appendChild(grid);
       vizContainer.appendChild(grp);
     });
 
