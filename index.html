@@ -604,6 +604,7 @@
     </div>
     <div style="display:grid; place-items:center; background:#0b0c10; border:1px solid var(--border); border-radius:12px; padding:8px">
       <img id="lbImg" src="" alt="full" style="max-width:100%; max-height:70vh; border-radius:10px" />
+      <video id="lbVideo" controls style="max-width:100%; max-height:70vh; border-radius:10px; display:none"></video>
     </div>
   </div>
 </div>
@@ -2017,33 +2018,48 @@
   const vizLink=qs('#vizLink');
   const vizPortalSel=qs('#vizPortalSel');
   const vizTagsInput=qs('#vizTagsInput');
-  const lightbox=qs('#lightbox'); 
-  const lbImg=qs('#lbImg'); 
-  const lbMeta=qs('#lbMeta'); 
+  const lightbox=qs('#lightbox');
+  const lbImg=qs('#lbImg');
+  const lbVideo=qs('#lbVideo');
+  const lbMeta=qs('#lbMeta');
   const lbDelete=qs('#lbDelete');
-  qs('#lbClose')?.addEventListener('click',()=> lightbox.classList.remove('open'));
+  qs('#lbClose')?.addEventListener('click',()=> { lbVideo.pause(); lightbox.classList.remove('open'); });
 
   let vizActiveTags=new Set();
-  let currentLightboxImageId=null;
+  let currentLightboxMediaId=null;
+  let currentLightboxType='image';
 
-  function openLightbox(src, meta, imageId){ 
-    lbImg.src=src; 
-    lbMeta.textContent=meta||''; 
-    currentLightboxImageId=imageId;
-    if(lbDelete) {
-      lbDelete.style.display = imageId ? 'inline-flex' : 'none';
+  function openLightbox(src, meta, mediaId, type){
+    lbMeta.textContent=meta||'';
+    currentLightboxMediaId=mediaId;
+    currentLightboxType=type;
+    if(type==='video'){
+      lbImg.style.display='none';
+      lbVideo.style.display='block';
+      lbVideo.src=src;
+      lbVideo.play();
+    }else{
+      lbVideo.pause();
+      lbVideo.style.display='none';
+      lbImg.style.display='block';
+      lbImg.src=src;
     }
-    lightbox.classList.add('open'); 
+    if(lbDelete) {
+      lbDelete.style.display = mediaId ? 'inline-flex' : 'none';
+    }
+    lightbox.classList.add('open');
   }
 
   qs('#lbDelete')?.addEventListener('click', async ()=>{
-    if(!currentLightboxImageId) return;
-    
-    if(await askConfirm('Delete this image? This cannot be undone.')){
-      const imageIndex = state.images.findIndex(img => img.id === currentLightboxImageId);
-      if(imageIndex > -1){
-        state.images.splice(imageIndex, 1);
+    if(!currentLightboxMediaId) return;
+
+    if(await askConfirm(`Delete this ${currentLightboxType}? This cannot be undone.`)){
+      const arr = currentLightboxType === 'video' ? (state.videos || []) : (state.images || []);
+      const idx = arr.findIndex(m => m.id === currentLightboxMediaId);
+      if(idx > -1){
+        arr.splice(idx, 1);
         save();
+        lbVideo.pause();
         lightbox.classList.remove('open');
         renderVisualizers();
       }
@@ -2184,6 +2200,12 @@ if (it.type === 'video' || it.video) {
 cap.textContent = it.name || (it.derived ? 'Embedded' : ((it.type === 'video' || it.video) ? 'Video' : 'Image'));
 
         th.appendChild(cap);
+th.onclick = () => openLightbox(
+  it.src,
+  `${title}${it.tags?.length ? ' • ' + it.tags.join(', ') : ''}`,
+  it.derived ? null : it.id,
+  'image'
+);
         grid.appendChild(th);
       });
       grp.appendChild(grid); 
