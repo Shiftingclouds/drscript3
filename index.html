@@ -2113,137 +2113,157 @@
     return derived;
   }
 
-  function renderVisualizers(){
-    if(!vizContainer) return;
-    vizPortalFilter.innerHTML=''; 
-    const all=document.createElement('option'); 
-    all.value=''; 
-    all.textContent='All portals'; 
-    vizPortalFilter.appendChild(all); 
-    (state.portals||[]).forEach((p,i)=>{ 
-      const o=document.createElement('option'); 
-      o.value=String(i); 
-      o.textContent=p.name||`Portal ${i+1}`; 
-      vizPortalFilter.appendChild(o); 
-    });
+ function renderVisualizers(){
+  if(!vizContainer) return;
 
-vizTagBar.innerHTML = '';
-const allTags = Array.from(
-  new Set([...(state.images || []), ...(state.videos || [])].flatMap(i => i.tags || []))
-).sort((a, b) => a.localeCompare(b));
-allTags.forEach(t => {
+  // Rebuild the portal filter
+  vizPortalFilter.innerHTML = '';
+  const all = document.createElement('option');
+  all.value = '';
+  all.textContent = 'All portals';
+  vizPortalFilter.appendChild(all);
+  (state.portals || []).forEach((p, i) => {
+    const o = document.createElement('option');
+    o.value = String(i);
+    o.textContent = p.name || `Portal ${i + 1}`;
+    vizPortalFilter.appendChild(o);
+  });
 
-});
+  // ==== TAG CHIPS (this was the part that broke) ====
+  vizTagBar.innerHTML = '';
+  const allTags = Array.from(
+    new Set([...(state.images || []), ...(state.videos || [])].flatMap(m => m.tags || []))
+  ).sort((a,b) => a.localeCompare(b));
+  allTags.forEach((t) => {
+    const chip = document.createElement('span');
+    chip.className = 'tag';
+    chip.textContent = t;
+    chip.dataset.tag = t;
+    if (vizActiveTags.has(t)) chip.classList.add('active');
+    chip.onclick = () => {
+      vizActiveTags.has(t) ? vizActiveTags.delete(t) : vizActiveTags.add(t);
+      renderVisualizers();
+    };
+    vizTagBar.appendChild(chip);
+  });
 
-      const chip=document.createElement('span'); 
-      chip.className='tag'; 
-      chip.textContent=t; 
-      chip.dataset.tag=t; 
-      if(vizActiveTags.has(t)) chip.classList.add('active'); 
-      chip.onclick=()=>{ 
-        vizActiveTags.has(t)? vizActiveTags.delete(t): vizActiveTags.add(t); 
-        renderVisualizers(); 
-      }; 
-      vizTagBar.appendChild(chip); 
-    });
+  // Gather derived media (from portal editors)
+  const derived = scanPortalImages();
 
-    const derived = scanPortalImages();
-    const q=(vizSearch?.value||'').toLowerCase().trim(); 
-    const pf=vizPortalFilter?.value||''; 
-    const pfIdx = pf===''? null : parseInt(pf,10);
+  // Filters
+  const q = (vizSearch?.value || '').toLowerCase().trim();
+  const pf = vizPortalFilter?.value || '';
+  const pfIdx = pf === '' ? null : parseInt(pf, 10);
 
-    const byPortal=new Map();
-    function addToGroup(rec){
-      const key = rec.portalIndex!=null? rec.portalIndex : -1;
-      if(!byPortal.has(key)) byPortal.set(key, []);
-      byPortal.get(key).push(rec);
-    }
-(state.images || []).forEach(img => addToGroup({ ...img, type: 'image' }));
-(state.videos || []).forEach(vid => addToGroup({ ...vid, type: 'video' }));
-derived.forEach(img => addToGroup({ ...img, type: 'image' }));
-
-    for(const [k,arr] of byPortal.entries()){
-      byPortal.set(k, arr.filter(rec=>{
-        if(pfIdx!==null && (rec.portalIndex??-1)!==pfIdx) return false;
-        if(vizActiveTags.size){ 
-          const set=new Set(rec.tags||[]); 
-          for(const t of vizActiveTags){ 
-            if(!set.has(t)) return false; 
-          } 
-        }
-        if(q){ 
-          const hay=[rec.name||'', ...(rec.tags||[])].join(' ').toLowerCase(); 
-          if(!hay.includes(q)) return false; 
-        }
-        return true;
-      }));
-    }
-
-    vizContainer.innerHTML=''; 
-    let total=0;
-    const keys=[...byPortal.keys()].sort((a,b)=> a-b);
-    keys.forEach(key=>{
-      const items=byPortal.get(key)||[]; 
-      if(!items.length) return; 
-      total+=items.length;
-      const grp=document.createElement('div'); 
-      grp.className='viz-group';
-      const title = key===-1? 'Unassigned' : (state.portals[key]?.name || `Portal ${key+1}`);
-      grp.innerHTML = `<h3>${title} • ${items.length}</h3>`;
-      const grid=document.createElement('div'); 
-      grid.className='viz-grid';
-      items.forEach(it=>{
-        const th=document.createElement('div');
-        th.className='viz-thumb';
-if (it.type === 'video' || it.video) {
-  let media;
-  if (it.tag === 'iframe') {
-    media = document.createElement('iframe');
-    media.src = it.src;
-    media.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-    media.style.border = '0';
-  } else {
-    media = document.createElement('video');
-    media.src = it.src;
-    media.controls = true;
-    media.muted = true; // keeps inline autoplay quiet if you enable it later
-    if (it.poster) media.poster = it.poster;
+  // Group media by portal
+  const byPortal = new Map();
+  function addToGroup(rec){
+    const key = rec.portalIndex != null ? rec.portalIndex : -1;
+    if (!byPortal.has(key)) byPortal.set(key, []);
+    byPortal.get(key).push(rec);
   }
-  media.style.position = 'absolute';
-  media.style.inset = '0';
-  media.style.width = '100%';
-  media.style.height = '100%';
-  media.style.objectFit = 'cover';
-  th.appendChild(media);
-  th.style.cursor = 'default';
-  th.onclick = () => window.open(it.src, '_blank');
-} else {
-  th.style.backgroundImage = `url(${it.src})`;
-  th.onclick = () =>
-    openLightbox(
-      it.src,
-      `${title}${it.tags?.length ? ' • ' + it.tags.join(', ') : ''}`,
-      it.derived ? null : it.id
-    );
+
+  (state.images || []).forEach(img => addToGroup({ ...img, type: 'image' }));
+  (state.videos || []).forEach(vid => addToGroup({ ...vid, type: 'video' }));
+  // keep type if present for derived (videos come through with type:'video')
+  derived.forEach(rec => addToGroup({ ...rec, type: rec.type || 'image' }));
+
+  // Apply filters to each group
+  for (const [k, arr] of byPortal.entries()) {
+    byPortal.set(k, arr.filter(rec => {
+      if (pfIdx !== null && (rec.portalIndex ?? -1) !== pfIdx) return false;
+      if (vizActiveTags.size) {
+        const set = new Set(rec.tags || []);
+        for (const t of vizActiveTags) {
+          if (!set.has(t)) return false;
+        }
+      }
+      if (q) {
+        const hay = [rec.name || '', ...(rec.tags || [])].join(' ').toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    }));
+  }
+
+  // Render
+  vizContainer.innerHTML = '';
+  let total = 0;
+  const keys = [...byPortal.keys()].sort((a,b) => a - b);
+  keys.forEach(key => {
+    const items = byPortal.get(key) || [];
+    if (!items.length) return;
+    total += items.length;
+
+    const grp = document.createElement('div');
+    grp.className = 'viz-group';
+    const title = key === -1 ? 'Unassigned' : (state.portals[key]?.name || `Portal ${key + 1}`);
+    grp.innerHTML = `<h3>${title} • ${items.length}</h3>`;
+
+    const grid = document.createElement('div');
+    grid.className = 'viz-grid';
+
+    items.forEach(it => {
+      const th = document.createElement('div');
+      th.className = 'viz-thumb';
+
+      if (it.type === 'video' || it.video) {
+        // Support <video> and <iframe> (e.g., YouTube)
+        let media;
+        if (it.tag === 'iframe') {
+          media = document.createElement('iframe');
+          media.src = it.src;
+          media.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+          media.style.border = '0';
+          th.style.cursor = 'default';
+          th.onclick = () => window.open(it.src, '_blank'); // keep current UX for iframes
+        } else {
+          media = document.createElement('video');
+          media.src = it.src;
+          media.controls = true;
+          media.muted = true;
+          if (it.poster) media.poster = it.poster;
+          // Use lightbox for local videos
+          th.onclick = () => openLightbox(
+            it.src,
+            `${title}${it.tags?.length ? ' • ' + it.tags.join(', ') : ''}`,
+            it.derived ? null : it.id,
+            'video'
+          );
+        }
+        media.style.position = 'absolute';
+        media.style.inset = '0';
+        media.style.width = '100%';
+        media.style.height = '100%';
+        media.style.objectFit = 'cover';
+        th.appendChild(media);
+      } else {
+        th.style.backgroundImage = `url(${it.src})`;
+        th.onclick = () => openLightbox(
+          it.src,
+          `${title}${it.tags?.length ? ' • ' + it.tags.join(', ') : ''}`,
+          it.derived ? null : it.id,
+          'image'
+        );
+      }
+
+      const cap = document.createElement('div');
+      cap.className = 'cap';
+      cap.textContent = it.name
+        || (it.derived
+            ? ((it.type === 'video' || it.video) ? 'Embedded Video' : 'Embedded')
+            : ((it.type === 'video' || it.video) ? 'Video' : 'Image'));
+      th.appendChild(cap);
+
+      grid.appendChild(th);
+    });
+
+    grp.appendChild(grid);
+    vizContainer.appendChild(grp);
+  });
+
+  vizEmpty.style.display = total ? 'none' : 'grid';
 }
-
-const cap = document.createElement('div');
-cap.className = 'cap';
-cap.textContent =
-  it.name ||
-  (it.derived
-    ? ((it.type === 'video' || it.video) ? 'Embedded Video' : 'Embedded')
-    : ((it.type === 'video' || it.video) ? 'Video' : 'Image'));
-th.appendChild(cap);
-        
-        grid.appendChild(th);
-      });
-      grp.appendChild(grid);
-      vizContainer.appendChild(grp);
-    });
-
-    vizEmpty.style.display = total? 'none' : 'grid';
-  }
 
   vizUploadBtn?.addEventListener('click', ()=>{
     vizPortalSel.innerHTML=''; 
