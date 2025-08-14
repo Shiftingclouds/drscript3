@@ -264,7 +264,7 @@
       </div>
       <div id="vizTagBar" class="tagbar"></div>
       <div id="vizContainer"></div>
-      <div id="vizEmpty" class="empty" style="display:none">No images found</div>
+      <div id="vizEmpty" class="empty" style="display:none">No media found</div>
     </section>
 
     <!-- Waiting Rooms -->
@@ -2091,10 +2091,14 @@
       vizPortalFilter.appendChild(o); 
     });
 
-    vizTagBar.innerHTML=''; 
-    const allTags = Array.from(new Set([...(state.images||[]), ...(state.videos||[])]
-      .flatMap(i=>i.tags||[]))).sort((a,b)=> a.localeCompare(b));
-    allTags.forEach(t=>{ 
+vizTagBar.innerHTML = '';
+const allTags = Array.from(
+  new Set([...(state.images || []), ...(state.videos || [])].flatMap(i => i.tags || []))
+).sort((a, b) => a.localeCompare(b));
+allTags.forEach(t => {
+
+});
+
       const chip=document.createElement('span'); 
       chip.className='tag'; 
       chip.textContent=t; 
@@ -2113,15 +2117,14 @@
     const pfIdx = pf===''? null : parseInt(pf,10);
 
     const byPortal=new Map();
-    function addToGroup(rec){ 
-      const key = rec.portalIndex!=null? rec.portalIndex : -1; 
-      if(!byPortal.has(key)) byPortal.set(key, []); 
-      byPortal.get(key).push(rec); 
+    function addToGroup(rec){
+      const key = rec.portalIndex!=null? rec.portalIndex : -1;
+      if(!byPortal.has(key)) byPortal.set(key, []);
+      byPortal.get(key).push(rec);
     }
-
-    (state.images||[]).forEach(img=> addToGroup(img));
-    (state.videos||[]).forEach(vid=> addToGroup(vid));
-    derived.forEach(img=> addToGroup(img));
+(state.images || []).forEach(img => addToGroup({ ...img, type: 'image' }));
+(state.videos || []).forEach(vid => addToGroup({ ...vid, type: 'video' }));
+derived.forEach(img => addToGroup({ ...img, type: 'image' }));
 
     for(const [k,arr] of byPortal.entries()){
       byPortal.set(k, arr.filter(rec=>{
@@ -2156,19 +2159,30 @@
       items.forEach(it=>{
         const th=document.createElement('div');
         th.className='viz-thumb';
-        if(it.video){
-          const vid=document.createElement('video');
-          vid.src=it.src;
-          vid.controls=true;
-          th.appendChild(vid);
-          th.onclick=()=> window.open(it.src, '_blank');
+if (it.type === 'video' || it.video) {
+  const vid = document.createElement('video');
+  vid.src = it.src;
+  vid.muted = true;
+  vid.controls = true;
+  vid.style.width = '100%';
+  vid.style.height = '100%';
+  vid.style.objectFit = 'cover';
+  vid.style.position = 'absolute';
+  vid.style.inset = '0';
+  if (it.poster) vid.poster = it.poster;
+  th.appendChild(vid);
+  th.style.cursor = 'default';
+  th.onclick = () => window.open(it.src, '_blank');
+}
+
         }else{
           th.style.backgroundImage=`url(${it.src})`;
           th.onclick=()=> openLightbox(it.src, `${title}${it.tags?.length? ' • '+it.tags.join(', '):''}`, it.derived ? null : it.id);
         }
         const cap=document.createElement('div');
         cap.className='cap';
-        cap.textContent=it.name || (it.derived? 'Embedded' : (it.video? 'Video' : 'Image'));
+cap.textContent = it.name || (it.derived ? 'Embedded' : ((it.type === 'video' || it.video) ? 'Video' : 'Image'));
+
         th.appendChild(cap);
         grid.appendChild(th);
       });
