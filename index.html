@@ -1182,28 +1182,8 @@ let tiltX = 0, tiltY = 0;
       dragMoved=false;
       lastX=e.clientX;
       lastY=e.clientY;
-// Right-click pans; left/middle click nudges nearby objects
+// Right-click pans; left/middle drag objects
 isPanning = (e.button === 2);
-
-// On non-pan clicks, apply a small impulse to nearby objects
-if (!isPanning) {
-  const rect = portalCanvas.getBoundingClientRect();
-  const x = (e.clientX - rect.left - offsetX) / scale;
-  const y = (e.clientY - rect.top - offsetY) / scale;
-
-  portalSceneObjs.forEach(o => {
-    const dist = Math.hypot(o.x - x, o.y - y);
-    if (dist < o.r * 2) {
-      o.vx += (Math.random() - 0.5) * 2;
-      o.vy += (Math.random() - 0.5) * 2;
-      o.angVel += (Math.random() - 0.5) * 0.05;
-      o.angle += (Math.random() - 0.5) * 0.5;
-      o.orbitRadius *= 1 + (Math.random() - 0.5) * 0.1;
-      o.cx += (Math.random() - 0.5) * 10;
-      o.cy += (Math.random() - 0.5) * 10;
-    }
-  });
-}
 
     }else if(activePointers.size===2){
       const [p1,p2]=Array.from(activePointers.values());
