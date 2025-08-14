@@ -1164,9 +1164,9 @@
       const rect=portalCanvas.getBoundingClientRect();
       const x=(e.clientX-rect.left-offsetX)/scale;
       const y=(e.clientY-rect.top-offsetY)/scale;
-      portalSceneObjs.some((o,idx)=>{
+      portalSceneObjs.some(o=>{
         if(Math.hypot(o.x-x,o.y-y)<o.r){
-          showPortalSummary(idx);
+          showPortalSummary(o.portal);
           return true;
         }
       });
@@ -1213,16 +1213,19 @@ const loadPromises = [];
         y:Math.random()*portalCanvas.height,
         r:20+Math.random()*30,
         color:`hsl(${Math.random()*360},70%,60%)`,
-        cover:null
+        texture:null,
+        title:p.title||p.name||'Portal',
+        portal:p
       };
-      if(p.cover){
+      const src=p.coverImage||p.cover||(p.gallery&&p.gallery[0]);
+      if(src){
         const img=new Image();
-        obj.cover=img;
+        obj.texture=img;
         loadPromises.push(new Promise(res=>{
           img.onload=()=>res();
-          img.onerror=()=>{ obj.cover=null; res(); };
+          img.onerror=()=>{ obj.texture=null; res(); };
         }));
-        img.src=p.cover;
+        img.src=src;
       }
       return obj;
     });
@@ -1235,8 +1238,8 @@ const loadPromises = [];
       portalCtx.translate(offsetX,offsetY);
       portalCtx.scale(scale,scale);
       portalSceneObjs.forEach(o=>{
-        if(o.cover){
-          portalCtx.drawImage(o.cover,o.x-o.r,o.y-o.r,o.r*2,o.r*2);
+        if(o.texture){
+          portalCtx.drawImage(o.texture,o.x-o.r,o.y-o.r,o.r*2,o.r*2);
         }else{
           portalCtx.fillStyle=o.color;
           portalCtx.beginPath();
@@ -1301,8 +1304,8 @@ const loadPromises = [];
     renderPortalScene();
   }
 
-  function showPortalSummary(idx){
-    const p=state.portals?.[idx];
+  function showPortalSummary(portal){
+    const p=portal;
     if(!p) return;
     const modal=qs('#portalSummaryModal');
     const card=qs('#portalSummaryCard');
