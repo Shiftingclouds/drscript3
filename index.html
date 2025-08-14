@@ -1266,9 +1266,9 @@ if (
       const rect=portalCanvas.getBoundingClientRect();
       const x=(e.clientX-rect.left-offsetX)/scale;
       const y=(e.clientY-rect.top-offsetY)/scale;
-      portalSceneObjs.some((o,idx)=>{
+      portalSceneObjs.some(o=>{
         if(Math.hypot(o.x-x,o.y-y)<o.r){
-          showPortalSummary(idx);
+          showPortalSummary(o.portal);
           return true;
         }
       });
@@ -1376,27 +1376,37 @@ const loadPromises = [];
         angVel:(Math.random()-0.5)*0.01,
         r:20+Math.random()*30,
         color:`hsl(${Math.random()*360},70%,60%)`,
-        cover:null,
+texture: null,
+cover: null,
+title: p.title || p.name || 'Portal',
+portal: p,
 vx: 0,
 vy: 0,
 x: cx + Math.cos(angle) * orbitRadius,
 y: cy + Math.sin(angle) * orbitRadius
+};
 
-      };
-      if(p.cover){
-        let img = imageCache.get(p.cover);
-        if(!img){
-          img = new Image();
-          imageCache.set(p.cover, img);
-          img.src = p.cover;
-        }
-        obj.cover = img;
-        if(!img.complete){
-          loadPromises.push(new Promise(res=>{
-            img.onload=()=>res();
-            img.onerror=()=>{ imageCache.delete(p.cover); obj.cover=null; res(); };
-          }));
-        }
+const src = p.coverImage || p.cover || (p.gallery && p.gallery[0]);
+if (src) {
+  let img = imageCache.get(src);
+  if (!img) {
+    img = new Image();
+    imageCache.set(src, img);
+    img.src = src;
+  }
+
+  // Keep both properties for compatibility with existing draw code
+  obj.texture = img;
+  obj.cover = img;
+
+  if (!img.complete) {
+    loadPromises.push(new Promise(res => {
+      img.onload = () => res();
+      img.onerror = () => { imageCache.delete(src); obj.texture = obj.cover = null; res(); };
+    }));
+  }
+}
+
       }
       return obj;
     });
@@ -1431,7 +1441,7 @@ portalCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
       portalCtx.translate(offsetX,offsetY);
       portalCtx.scale(scale,scale);
       portalSceneObjs.forEach(o=>{
-// Physics integration & boundary bounce (from codex/replace-drag-logic-with-velocity-impulse)
+// Physics integration & boundary bounce
 o.x += o.vx;
 o.y += o.vy;
 o.vx *= 0.95;
@@ -1443,7 +1453,7 @@ else if (o.x > portalCanvas.width - o.r) { o.x = portalCanvas.width - o.r; o.vx 
 if (o.y < o.r) { o.y = o.r; o.vy *= -0.5; }
 else if (o.y > portalCanvas.height - o.r) { o.y = portalCanvas.height - o.r; o.vy *= -0.5; }
 
-// Rendering: drop shadow behind orb, then clip to a circle (from main)
+// Rendering: drop shadow behind orb
 portalCtx.save();
 portalCtx.shadowColor = 'rgba(0,0,0,0.5)';
 portalCtx.shadowBlur = 10;
@@ -1455,13 +1465,27 @@ portalCtx.fillStyle = 'rgba(0,0,0,0)';
 portalCtx.fill();
 portalCtx.restore();
 
+// Clip to circular mask for the orb content
 portalCtx.save();
 portalCtx.beginPath();
 portalCtx.arc(o.x, o.y, o.r, 0, Math.PI * 2);
 portalCtx.clip();
 
-        if(o.cover){
-          portalCtx.drawImage(o.cover,o.x-o.r,o.y-o.r,o.r*2,o.r*2);
+// Draw image if present (support both properties)
+const img = o.cover || o.texture;
+if (img) {
+  portalCtx.drawImage(img, o.x - o.r, o.y - o.r, o.r * 2, o.r * 2);
+} else {
+  // Fallback: soft radial glow
+  const g = portalCtx.createRadialGradient(o.x, o.y, o.r * 0.2, o.x, o.y, o.r);
+  g.addColorStop(0, 'rgba(255,255,255,0.15)');
+  g.addColorStop(1, 'rgba(255,255,255,0.02)');
+  portalCtx.fillStyle = g;
+  portalCtx.fillRect(o.x - o.r, o.y - o.r, o.r * 2, o.r * 2);
+}
+
+portalCtx.restore(); // end circular clip
+
         }else{
           portalCtx.fillStyle=o.color;
           portalCtx.fillRect(o.x-o.r,o.y-o.r,o.r*2,o.r*2);
@@ -1545,8 +1569,8 @@ portalCtx.clip();
     renderPortalScene();
   }
 
-  function showPortalSummary(idx){
-    const p=state.portals?.[idx];
+  function showPortalSummary(portal){
+    const p=portal;
     if(!p) return;
     const modal=qs('#portalSummaryModal');
     const card=qs('#portalSummaryCard');
