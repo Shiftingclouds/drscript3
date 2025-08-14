@@ -1188,7 +1188,12 @@
   window.addEventListener('resize',sizePortalCanvas);
 
   async function renderPortalScene(){
-    sizePortalCanvas();
+// Ensure the canvas is sized correctly, regardless of which helper exists
+(typeof resizePortalCanvas === 'function' ? resizePortalCanvas : sizePortalCanvas)();
+
+// Prepare to track async image loads (used later in renderPortalScene)
+const loadPromises = [];
+
     portalSceneObjs=(state.portals||[]).map(p=>{
       const obj={
         x:Math.random()*portalCanvas.width,
@@ -1200,14 +1205,14 @@
       if(p.cover){
         const img=new Image();
         obj.cover=img;
+        loadPromises.push(new Promise(res=>{
+          img.onload=()=>res();
+          img.onerror=()=>{ obj.cover=null; res(); };
+        }));
         img.src=p.cover;
       }
       return obj;
     });
-
-    const loadPromises=portalSceneObjs.filter(o=>o.cover).map(o=>new Promise(res=>{
-      if(o.cover.complete) res(); else { o.cover.onload=o.cover.onerror=res; }
-    }));
 
     await Promise.all(loadPromises);
 
