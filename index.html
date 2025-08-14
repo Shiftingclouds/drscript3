@@ -3861,10 +3861,12 @@ portalCtx.restore(); // end circular clip
         }
         
         incoming.images = incoming.images.map(img => ({
-          ...img,
-          src: img.src?.startsWith('LOCAL_IMAGE_') ? 
-            (localImageMap.get(img.id) || img.src) : img.src
-        }));
+  ...img,
+  src: img.src?.startsWith('LOCAL_IMAGE_')
+    ? (localImageMap.get(img.id) || img.src)
+    : img.src
+}));
+
       }
       
       state = incoming; 
