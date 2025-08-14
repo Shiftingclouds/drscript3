@@ -193,9 +193,9 @@
           drop-shadow(0 2px 4px rgba(0,0,0,.6));
 }
 
-/* Enter App button: centered, styled, animated */
+/* Enter App button: centered, styled, animated, fixed to viewport */
 #enterApp{
-  position:absolute;
+  position:fixed;            /* <- fixed so it ignores canvas panning/zoom */
   left:50%;
   bottom:20px;
   transform:translateX(-50%);
@@ -1257,7 +1257,12 @@ if (!isPanning) {
   });
 
   function endPointer(e){
-    if(e.type==='pointerup' && e.button===0 && !dragMoved){
+if (
+  e.type === 'pointerup' &&
+  !dragMoved &&
+  ((e.pointerType === 'mouse' && e.button === 0) || e.pointerType === 'touch' || e.pointerType === 'pen')
+){
+
       const rect=portalCanvas.getBoundingClientRect();
       const x=(e.clientX-rect.left-offsetX)/scale;
       const y=(e.clientY-rect.top-offsetY)/scale;
@@ -1282,6 +1287,8 @@ if (!isPanning) {
 
   portalCanvas.addEventListener('pointerup',endPointer);
   portalCanvas.addEventListener('pointercancel',endPointer);
+
+  portalCanvas.addEventListener('contextmenu', e=> e.preventDefault());
 
   portalCanvas.addEventListener('wheel',e=>{
     e.preventDefault();
