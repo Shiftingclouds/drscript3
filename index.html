@@ -1413,24 +1413,6 @@ if (src) {
     function draw(){
       portalCtx.setTransform(1,0,0,1,0,0);
       portalCtx.clearRect(0,0,portalCanvas.width,portalCanvas.height);
-// Update motion (from codex/extend-portalsceneobj-with-velocity-attributes)
-portalSceneObjs.forEach(o => {
-  o.vx += (Math.random() - 0.5) * 0.02;
-  o.vy += (Math.random() - 0.5) * 0.02;
-  o.angVel += (Math.random() - 0.5) * 0.0005;
-
-  o.vx *= 0.99;
-  o.vy *= 0.99;
-  o.angVel *= 0.99;
-
-  o.cx += o.vx;
-  o.cy += o.vy;
-  o.angle += o.angVel;
-
-  o.x = o.cx + Math.cos(o.angle) * o.orbitRadius;
-  o.y = o.cy + Math.sin(o.angle) * o.orbitRadius;
-});
-
 // Prepare canvas for HiDPI drawing (from main)
 portalCtx.save();
 portalCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1438,17 +1420,30 @@ portalCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
       portalCtx.translate(offsetX,offsetY);
       portalCtx.scale(scale,scale);
       portalSceneObjs.forEach(o=>{
-// Physics integration & boundary bounce
-o.x += o.vx;
-o.y += o.vy;
-o.vx *= 0.95;
-o.vy *= 0.95;
+// Apply random jitter
+o.vx += (Math.random() - 0.5) * 0.02;
+o.vy += (Math.random() - 0.5) * 0.02;
+o.angVel += (Math.random() - 0.5) * 0.0005;
 
-if (o.x < o.r) { o.x = o.r; o.vx *= -0.5; }
-else if (o.x > portalCanvas.width - o.r) { o.x = portalCanvas.width - o.r; o.vx *= -0.5; }
+// Apply friction
+o.vx *= 0.99;
+o.vy *= 0.99;
+o.angVel *= 0.99;
 
-if (o.y < o.r) { o.y = o.r; o.vy *= -0.5; }
-else if (o.y > portalCanvas.height - o.r) { o.y = portalCanvas.height - o.r; o.vy *= -0.5; }
+// Update position
+o.cx += o.vx;
+o.cy += o.vy;
+o.angle += o.angVel;
+
+o.x = o.cx + Math.cos(o.angle) * o.orbitRadius;
+o.y = o.cy + Math.sin(o.angle) * o.orbitRadius;
+
+// Handle boundary bounces
+if (o.x < o.r) { o.x = o.r; o.vx *= -0.5; o.cx = o.x - Math.cos(o.angle) * o.orbitRadius; }
+else if (o.x > portalCanvas.width - o.r) { o.x = portalCanvas.width - o.r; o.vx *= -0.5; o.cx = o.x - Math.cos(o.angle) * o.orbitRadius; }
+
+if (o.y < o.r) { o.y = o.r; o.vy *= -0.5; o.cy = o.y - Math.sin(o.angle) * o.orbitRadius; }
+else if (o.y > portalCanvas.height - o.r) { o.y = portalCanvas.height - o.r; o.vy *= -0.5; o.cy = o.y - Math.sin(o.angle) * o.orbitRadius; }
 
 // Rendering: drop shadow behind orb
 portalCtx.save();
