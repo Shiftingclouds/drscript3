@@ -545,7 +545,7 @@
         <div class="field"><label class="label">Name</label><input id="wrName" class="text"/></div>
         <div class="field"><label class="label">Use as default</label><label style="display:flex; gap:8px; align-items:center"><input type="checkbox" id="wrDefault"/> <span class="muted">New portals link to this by default</span></label></div>
         <div class="field"><label class="label">Description</label>
-          <div class="rte"><div class="rtebar"><button data-cmd="bold">B</button><button data-cmd="italic"><em>I</em></button><button data-cmd="underline"><u>U</u></button><button data-cmd="insertUnorderedList">• List</button><button data-cmd="insertOrderedList">1. List</button><label class="btn-file" style="background:#171920; border:1px solid var(--border); padding:6px 8px; border-radius:8px; cursor:pointer">🖼 Add Image<input type="file" accept="image/*" data-img="wr"></label></div><div id="wrDesc" class="area" contenteditable="true"></div></div>
+          <div class="rte"><div class="rtebar"><button data-cmd="bold">B</button><button data-cmd="italic"><em>I</em></button><button data-cmd="underline"><u>U</u></button><button data-cmd="insertUnorderedList">• List</button><button data-cmd="insertOrderedList">1. List</button><label class="btn-file" style="background:#171920; border:1px solid var(--border); padding:6px 8px; border-radius:8px; cursor:pointer">🖼 Add Image<input type="file" accept="image/*" data-img="wr"></label><label class="btn-file" style="background:#171920; border:1px solid var(--border); padding:6px 8px; border-radius:8px; cursor:pointer">🎬 Add Video<input type="file" accept="video/*" data-vid="wr"></label></div><div id="wrDesc" class="area" contenteditable="true"></div></div>
         </div>
         <div class="field"><label class="label">Affirmations (one per line)</label><textarea id="wrAff" class="textarea"></textarea></div>
         <div class="field"><label class="label">Pre-shift Checklist</label><div style="display:flex; gap:8px"><input id="wrChecklistItem" class="text" placeholder="Add checklist item"/><button class="btn" id="wrAddItem">Add</button></div><ul id="wrChecklist" style="margin:8px 0 0 18px"></ul></div>
@@ -568,7 +568,7 @@
         <div class="field"><label class="label">Tags</label><div id="jTags" class="tagbar"></div></div>
       </div>
       <div>
-        <div class="field"><label class="label">Entry</label><div class="rte"><div class="rtebar"><button data-cmd="bold">B</button><button data-cmd="italic"><em>I</em></button><button data-cmd="underline"><u>U</u></button><button data-cmd="insertUnorderedList">• List</button><button data-cmd="insertOrderedList">1. List</button><label class="btn-file" style="background:#171920; border:1px solid var(--border); padding:6px 8px; border-radius:8px; cursor:pointer">🖼 Add Image<input type="file" accept="image/*" data-img="journal"></label></div><div id="jBody" class="area" contenteditable="true" spellcheck="false" style="max-height:40vh; overflow-y:auto"></div></div></div>
+        <div class="field"><label class="label">Entry</label><div class="rte"><div class="rtebar"><button data-cmd="bold">B</button><button data-cmd="italic"><em>I</em></button><button data-cmd="underline"><u>U</u></button><button data-cmd="insertUnorderedList">• List</button><button data-cmd="insertOrderedList">1. List</button><label class="btn-file" style="background:#171920; border:1px solid var(--border); padding:6px 8px; border-radius:8px; cursor:pointer">🖼 Add Image<input type="file" accept="image/*" data-img="journal"></label><label class="btn-file" style="background:#171920; border:1px solid var(--border); padding:6px 8px; border-radius:8px; cursor:pointer">🎬 Add Video<input type="file" accept="video/*" data-vid="journal"></label></div><div id="jBody" class="area" contenteditable="true" spellcheck="false" style="max-height:40vh; overflow-y:auto"></div></div></div>
         <div class="actions"><button class="btn ghost" id="jCancel">Cancel</button><button class="btn primary" id="jSave">Save Entry</button></div>
       </div>
     </div>
@@ -1581,41 +1581,44 @@
     }
   });
 
-  // Handle file input for RTE image insertion
+  // Handle file input for RTE media insertion
   document.addEventListener('change',(e)=>{
-    const up=e.target.closest('input[type=file][data-img]');
-    if(up){ 
-      const f=e.target.files[0]; 
-      if(!f) return; 
-      const r=new FileReader(); 
-      r.onload=()=>{ 
+    const upImg=e.target.closest('input[type=file][data-img]');
+    const upVid=e.target.closest('input[type=file][data-vid]');
+    if(upImg || upVid){
+      const up = upImg || upVid;
+      const f=e.target.files[0];
+      if(!f) return;
+      const r=new FileReader();
+      r.onload=()=>{
         const rte = up.closest('.rte');
         const area = rte?.querySelector('.area');
         if(area) {
           area.focus();
-          const img = document.createElement('img');
-          img.src = r.result;
-          img.alt = f.name || 'Uploaded image';
-          img.style.maxWidth = '100%';
-          img.style.borderRadius = '10px';
-          img.style.border = '1px solid var(--border)';
-          img.style.display = 'block';
-          img.style.margin = '8px 0';
-          
+          const el = document.createElement(upVid ? 'video' : 'img');
+          el.src = r.result;
+          if(upVid) el.controls = true;
+          if(upImg) el.alt = f.name || 'Uploaded image';
+          el.style.maxWidth = '100%';
+          el.style.borderRadius = '10px';
+          el.style.border = '1px solid var(--border)';
+          el.style.display = 'block';
+          el.style.margin = '8px 0';
+
           const selection = window.getSelection();
           if(selection && selection.rangeCount > 0 && area.contains(selection.anchorNode)) {
             const range = selection.getRangeAt(0);
             range.deleteContents();
-            range.insertNode(img);
+            range.insertNode(el);
             range.collapse(false);
           } else {
-            area.appendChild(img);
+            area.appendChild(el);
           }
-          
-          up.value = ''; 
+
+          up.value = '';
         }
-      }; 
-      r.readAsDataURL(f); 
+      };
+      r.readAsDataURL(f);
     }
   });
 
@@ -1914,7 +1917,7 @@
             <button data-cmd="underline"><u>U</u></button>
             <button data-cmd="insertUnorderedList">• List</button>
             <button data-cmd="insertOrderedList">1. List</button>
-            <label class="btn-file" style="background:#171920; border:1px solid var(--border); padding:6px 8px; border-radius:8px; cursor:pointer">🖼 Add Image<input type="file" accept="image/*" data-img="sec-${name}"></label>
+            <label class="btn-file" style="background:#171920; border:1px solid var(--border); padding:6px 8px; border-radius:8px; cursor:pointer">🖼 Add Image<input type="file" accept="image/*" data-img="sec-${name}"></label><label class="btn-file" style="background:#171920; border:1px solid var(--border); padding:6px 8px; border-radius:8px; cursor:pointer">🎬 Add Video<input type="file" accept="video/*" data-vid="sec-${name}"></label>
           </div>
         </div>
         <div class="rte"><div class="area" contenteditable="true" data-area="${name}"></div></div>
@@ -1953,35 +1956,36 @@
     } 
   };
 
-  // RTE image insert for portal sections
+  // RTE media insert for portal sections
   document.addEventListener('change',(e)=>{
-    const up=e.target.closest('input[type=file][data-img^="sec-"]');
-    if(up){ 
-      const f=e.target.files[0]; 
-      if(!f) return; 
-      const r=new FileReader(); 
-      r.onload=()=>{ 
-        const name=up.getAttribute('data-img').slice(4); 
-        const area=peEditors.querySelector(`[data-area="${CSS.escape(name)}"]`); 
-        if(area){ 
-          const img=document.createElement('img'); 
-          img.src=r.result; 
-          img.alt=''; 
-          img.style.maxWidth='100%'; 
-          img.style.borderRadius='10px'; 
-          img.style.border='1px solid var(--border)'; 
-          const sel=window.getSelection(); 
-          if(sel && sel.rangeCount){ 
-            const range=sel.getRangeAt(0); 
-            range.collapse(false); 
-            range.insertNode(img); 
-          } else { 
-            area.appendChild(img); 
-          } 
-        } 
-        up.value=''; 
-      }; 
-      r.readAsDataURL(f); 
+    const up=e.target.closest('input[type=file][data-img^="sec-"], input[type=file][data-vid^="sec-"]');
+    if(up){
+      const f=e.target.files[0];
+      if(!f) return;
+      const r=new FileReader();
+      r.onload=()=>{
+        const name=(up.getAttribute('data-img')||up.getAttribute('data-vid')).slice(4);
+        const area=peEditors.querySelector(`[data-area="${CSS.escape(name)}"]`);
+        if(area){
+          const el=document.createElement(up.hasAttribute('data-vid')?'video':'img');
+          el.src=r.result;
+          if(el.tagName==='VIDEO') el.controls=true;
+          if(el.tagName==='IMG') el.alt='';
+          el.style.maxWidth='100%';
+          el.style.borderRadius='10px';
+          el.style.border='1px solid var(--border)';
+          const sel=window.getSelection();
+          if(sel && sel.rangeCount){
+            const range=sel.getRangeAt(0);
+            range.collapse(false);
+            range.insertNode(el);
+          } else {
+            area.appendChild(el);
+          }
+        }
+        up.value='';
+      };
+      r.readAsDataURL(f);
     }
   });
 
