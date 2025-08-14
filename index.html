@@ -4126,17 +4126,22 @@ portalCtx.restore(); // end circular clip
   tryParseImplicitToken();
   initStarfield();
   requestAnimationFrame(drawStarfield);
-  renderAll();
-  renderPortalScene();
-  attachSettingsHandlers();
-  setupAutoSync();
-
+  // Delay heavy initialization until the user enters the app
   qs('#enterApp').addEventListener('click', () => {
     const launch = qs('#launchScene');
     const app = qs('.app');
     launch.style.opacity = '0';
     app.style.display = 'grid';
-    requestAnimationFrame(() => app.style.opacity = '1');
+    requestAnimationFrame(() => {
+      app.style.opacity = '1';
+      // Use idle callback when available to keep the UI responsive
+      (window.requestIdleCallback || requestAnimationFrame)(() => {
+        renderAll();
+        renderPortalScene();
+        attachSettingsHandlers();
+        setupAutoSync();
+      });
+    });
     setTimeout(() => launch.style.display = 'none', 500);
   });
 
