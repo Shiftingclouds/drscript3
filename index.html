@@ -1042,9 +1042,22 @@
   function uid(){ return Math.random().toString(36).slice(2)+Date.now().toString(36); }
   function toLocalInput(iso){ try{ const d=new Date(iso); const pad=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }catch{ return ''; } }
 
+  let lastFocusedElement = null;
+  function closeModal(modal){
+    if(!modal) return;
+    modal.classList.remove('open');
+    lastFocusedElement?.focus();
+  }
+
+  document.addEventListener('focusin', (e) => {
+    if(!e.target.closest('.modal.open')){
+      lastFocusedElement = e.target;
+    }
+  });
+
   // ===== Navigation =====
-  const views={ 
-    portals:qs('#portals-view'), 
+  const views={
+    portals:qs('#portals-view'),
     journal:qs('#journal-view'), 
     playlists:qs('#playlists-view'), 
     waiting:qs('#waiting-view'), 
@@ -1079,11 +1092,11 @@
     const ok=qs('#confirmOk'); 
     const cancel=qs('#confirmCancel');
     return new Promise((resolve)=>{
-      const cleanup=()=>{ 
-        ok.onclick=null; 
-        cancel.onclick=null; 
-        modal.classList.remove('open'); 
-        modal.setAttribute('aria-hidden','true'); 
+      const cleanup=()=>{
+        ok.onclick=null;
+        cancel.onclick=null;
+        closeModal(modal);
+        modal.setAttribute('aria-hidden','true');
       };
       txt.textContent=message||'Are you sure?'; 
       modal.classList.add('open'); 
@@ -1334,7 +1347,7 @@ const loadPromises = [];
 
     // Close modal helper
     const hide=()=>{
-      modal.classList.remove('open');
+      closeModal(modal);
       modal.setAttribute('aria-hidden', 'true');
       document.removeEventListener('keydown', handleKeydown);
     };
@@ -1380,7 +1393,7 @@ const loadPromises = [];
     pNameInput.value=''; 
   }
 
-  qs('#pCancel').onclick=()=>{ pModal.classList.remove('open'); pEditingIndex=null; };
+  qs('#pCancel').onclick=()=>{ closeModal(pModal); pEditingIndex=null; };
   qs('#pCreate').onclick=()=>{
     const name=(pNameInput.value||'').trim()||'Untitled Portal';
     const cover=pCoverPrev.dataset.src||'';
@@ -1392,7 +1405,7 @@ const loadPromises = [];
       if(p){ p.name=name; p.cover=cover; }
     }
     save(); 
-    pModal.classList.remove('open'); 
+    closeModal(pModal);
     const btn=qs('#pCreate'); 
     if(btn) btn.textContent='Create'; 
     resetPortalModal(); 
@@ -1513,7 +1526,7 @@ const loadPromises = [];
     r.readAsDataURL(f); 
   };
   
-  qs('#wrCancel').onclick=()=>{ wrModal.classList.remove('open'); };
+  qs('#wrCancel').onclick=()=>{ closeModal(wrModal); };
   qs('#wrSave').onclick=()=>{
     const data={ 
       id: wrEditingId||uid(), 
@@ -1534,7 +1547,7 @@ const loadPromises = [];
       }); 
     }
     save(); 
-    wrModal.classList.remove('open'); 
+    closeModal(wrModal);
     renderWR();
   };
   
@@ -1782,7 +1795,7 @@ const loadPromises = [];
     r.readAsDataURL(f); 
   };
   
-  qs('#plCancel').onclick=()=>{ plModal.classList.remove('open'); };
+  qs('#plCancel').onclick=()=>{ closeModal(plModal); };
   qs('#plSave').onclick=()=>{
     const data={ 
       id: plEditingId||uid(), 
@@ -1795,7 +1808,7 @@ const loadPromises = [];
     if(idx>-1) state.playlists[idx]=data; 
     else state.playlists.push(data);
     save(); 
-    plModal.classList.remove('open'); 
+    closeModal(plModal);
     renderPlaylists();
   };
 
@@ -1871,7 +1884,7 @@ const loadPromises = [];
   let activeTagFilters=new Set();
 
   qs('#newEntry').onclick=()=> openJournalEditor();
-  qs('#jCancel').onclick=()=>{ jModal.classList.remove('open'); };
+  qs('#jCancel').onclick=()=>{ closeModal(jModal); };
   qs('#jSave').onclick=()=>{
     const tags = Array.from(jTags.querySelectorAll('.tag')).map(t=>t.dataset.tag);
     const entry={ 
@@ -1890,7 +1903,7 @@ const loadPromises = [];
       state.journal[currentEntryIndex]=entry; 
     }
     save(); 
-    jModal.classList.remove('open'); 
+    closeModal(jModal);
     renderJournal();
   };
   
@@ -2256,7 +2269,7 @@ const loadPromises = [];
   const lbVideo=qs('#lbVideo');
   const lbMeta=qs('#lbMeta');
   const lbDelete=qs('#lbDelete');
-  qs('#lbClose')?.addEventListener('click',()=> { lbVideo.pause(); lightbox.classList.remove('open'); });
+  qs('#lbClose')?.addEventListener('click',()=> { lbVideo.pause(); closeModal(lightbox); });
 
   let vizActiveTags=new Set();
   let currentLightboxMediaId=null;
@@ -2293,7 +2306,7 @@ const loadPromises = [];
         arr.splice(idx, 1);
         save();
         lbVideo.pause();
-        lightbox.classList.remove('open');
+        closeModal(lightbox);
         renderVisualizers();
       }
     }
@@ -2513,7 +2526,7 @@ const loadPromises = [];
     vizUploadModal.classList.add('open');
   });
   
-  qs('#vizCancel')?.addEventListener('click', ()=> vizUploadModal.classList.remove('open'));
+  qs('#vizCancel')?.addEventListener('click', ()=> closeModal(vizUploadModal));
   qs('#vizSave')?.addEventListener('click', ()=>{
     const files = Array.from(vizFiles.files||[]);
     const link = (vizLink.value||'').trim();
@@ -2543,7 +2556,7 @@ const loadPromises = [];
           }
           if(--pending===0){
             save();
-            vizUploadModal.classList.remove('open');
+            closeModal(vizUploadModal);
             if(vizFiles) vizFiles.value='';
             if(vizLink) vizLink.value='';
             if(vizName) vizName.value='';
@@ -2567,7 +2580,7 @@ const loadPromises = [];
         video:true
       });
       save();
-      vizUploadModal.classList.remove('open');
+      closeModal(vizUploadModal);
       if(vizFiles) vizFiles.value='';
       if(vizLink) vizLink.value='';
       if(vizName) vizName.value='';
@@ -2575,7 +2588,7 @@ const loadPromises = [];
       if(vizPortalSel) vizPortalSel.value='-1';
       renderVisualizers();
     } else {
-      vizUploadModal.classList.remove('open');
+      closeModal(vizUploadModal);
     }
   });
 
@@ -2892,7 +2905,7 @@ const loadPromises = [];
     }
     
     save();
-    qs('#dreamModal').classList.remove('open');
+    closeModal(qs('#dreamModal'));
     renderDreams();
   });
 
@@ -2916,7 +2929,7 @@ const loadPromises = [];
     }
     
     save();
-    qs('#goalModal').classList.remove('open');
+    closeModal(qs('#goalModal'));
     renderGoals();
   });
 
@@ -2942,14 +2955,27 @@ const loadPromises = [];
     }
     
     save();
-    qs('#techniqueModal').classList.remove('open');
+    closeModal(qs('#techniqueModal'));
     renderTechniques();
   });
 
   // Modal cancel handlers
-  qs('#dreamCancel')?.addEventListener('click', () => qs('#dreamModal').classList.remove('open'));
-  qs('#goalCancel')?.addEventListener('click', () => qs('#goalModal').classList.remove('open'));
-  qs('#techniqueCancel')?.addEventListener('click', () => qs('#techniqueModal').classList.remove('open'));
+  qs('#dreamCancel')?.addEventListener('click', () => closeModal(qs('#dreamModal')));
+  qs('#goalCancel')?.addEventListener('click', () => closeModal(qs('#goalModal')));
+  qs('#techniqueCancel')?.addEventListener('click', () => closeModal(qs('#techniqueModal')));
+
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape') {
+      document.querySelectorAll('.modal.open').forEach(m => closeModal(m));
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    const modal = e.target.closest('.modal.open');
+    if(modal && !e.target.closest('.modal-card')) {
+      closeModal(modal);
+    }
+  });
 
   // Emotion and RC button handlers
   document.addEventListener('click', (e) => {
@@ -3321,7 +3347,7 @@ const loadPromises = [];
     }
     
     save();
-    qs('#projectionModal').classList.remove('open');
+    closeModal(qs('#projectionModal'));
     renderProjections();
   });
 
@@ -3345,7 +3371,7 @@ const loadPromises = [];
     }
     
     save();
-    qs('#astralGoalModal').classList.remove('open');
+    closeModal(qs('#astralGoalModal'));
     renderAstralGoals();
   });
 
@@ -3371,14 +3397,14 @@ const loadPromises = [];
     }
     
     save();
-    qs('#astralTechniqueModal').classList.remove('open');
+    closeModal(qs('#astralTechniqueModal'));
     renderAstralTechniques();
   });
 
   // Astral modal cancel handlers
-  qs('#projectionCancel')?.addEventListener('click', () => qs('#projectionModal').classList.remove('open'));
-  qs('#astralGoalCancel')?.addEventListener('click', () => qs('#astralGoalModal').classList.remove('open'));
-  qs('#astralTechniqueCancel')?.addEventListener('click', () => qs('#astralTechniqueModal').classList.remove('open'));
+  qs('#projectionCancel')?.addEventListener('click', () => closeModal(qs('#projectionModal')));
+  qs('#astralGoalCancel')?.addEventListener('click', () => closeModal(qs('#astralGoalModal')));
+  qs('#astralTechniqueCancel')?.addEventListener('click', () => closeModal(qs('#astralTechniqueModal')));
 
   // Location button handlers (for projections)
   document.addEventListener('click', (e) => {
