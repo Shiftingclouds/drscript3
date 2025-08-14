@@ -181,15 +181,57 @@
   .viz-thumb{position:relative; width:100%; padding-top:100%; border:1px solid var(--border); border-radius:14px; background:#111317 center/cover no-repeat; cursor:pointer; overflow:hidden}
   .viz-thumb .cap{position:absolute; inset:auto 0 0 0; padding:6px 8px; background:linear-gradient(180deg, transparent, rgba(0,0,0,.55)); font-size:12px}
   #launchScene{position:fixed; inset:0; background:#000; transition:opacity .5s}
-  #launchScene canvas{position:absolute; top:0; left:0; width:100%; height:100%;
-    /* subtle glow and shadow around orbs */
-    filter: drop-shadow(0 0 6px rgba(255,255,255,.15)) drop-shadow(0 2px 4px rgba(0,0,0,.6));
-  }
-  #enterApp{position:absolute; left:50%; bottom:20px; transform:translateX(-50%); z-index:1000}
+/* Launch scene canvas with subtle orb glow */
+#launchScene canvas{
+  position:absolute;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  /* subtle glow and shadow around orbs */
+  filter: drop-shadow(0 0 6px rgba(255,255,255,.15))
+          drop-shadow(0 2px 4px rgba(0,0,0,.6));
+}
+
+/* Enter App button: centered, styled, animated */
+#enterApp{
+  position:absolute;
+  left:50%;
+  bottom:20px;
+  transform:translateX(-50%);
+  z-index:1000;
+  padding:14px 32px;
+  border:none;
+  border-radius:999px;
+  background:linear-gradient(135deg, var(--accent), var(--accent-2));
+  color:#fff;
+  font-size:16px;
+  font-weight:600;
+  cursor:pointer;
+  box-shadow:0 0 12px rgba(124,108,255,.4);
+  transition:background .3s, transform .2s, box-shadow .3s;
+  touch-action:manipulation;
+}
+
+#enterApp:hover,
+#enterApp:focus{
+  animation:enterPulse 1.2s ease-in-out alternate infinite;
+}
+
+#enterApp:active{
+  transform:translateX(-50%) scale(.97);
+  box-shadow:0 0 10px rgba(124,108,255,.5);
+}
+
+@keyframes enterPulse{
+  from{ transform:translateX(-50%) scale(1);   box-shadow:0 0 12px rgba(124,108,255,.4); }
+  to  { transform:translateX(-50%) scale(1.05); box-shadow:0 0 18px rgba(124,108,255,.6); }
+}
+
 </style>
 </head>
 <body>
-<div id="launchScene"><canvas id="portalCanvas"></canvas><button id="enterApp">Enter Tracking App</button></div>
+<div id="launchScene"><canvas id="starfieldCanvas"></canvas><canvas id="portalCanvas"></canvas><button id="enterApp">Enter Tracking App</button></div>
 <div class="app" style="display:none">
   <aside class="side">
     <div class="brand">
@@ -1113,8 +1155,12 @@
   const portalGrid=qs('#portalGrid');
   const portalCanvas=qs('#portalCanvas');
   const portalCtx=portalCanvas.getContext('2d');
+  const starCanvas=qs('#starfieldCanvas');
+  const starCtx=starCanvas.getContext('2d');
+  let starLayers=[];
   let portalSceneObjs=[];
   let offsetX=0, offsetY=0, scale=1;
+  let tiltX=0, tiltY=0;
 
   portalCanvas.style.touchAction='none';
   const activePointers=new Map();
@@ -1200,6 +1246,51 @@
     portalCanvas.width=portalCanvas.clientWidth;
     portalCanvas.height=portalCanvas.clientHeight;
   }
+
+  function sizeStarCanvas(){
+    starCanvas.width=starCanvas.clientWidth;
+    starCanvas.height=starCanvas.clientHeight;
+  }
+
+  function initStarfield(){
+    sizeStarCanvas();
+    starLayers=[];
+    const layers=3;
+    for(let l=0;l<layers;l++){
+      const count=80*(l+1);
+      const layer=[];
+      for(let i=0;i<count;i++){
+        layer.push({
+          x:Math.random()*starCanvas.width,
+          y:Math.random()*starCanvas.height,
+          size:Math.random()*2+0.5
+        });
+      }
+      starLayers.push(layer);
+    }
+  }
+
+  function drawStarfield(){
+    starCtx.clearRect(0,0,starCanvas.width,starCanvas.height);
+    starLayers.forEach((layer,idx)=>{
+      const depth=(idx+1)/starLayers.length;
+      const parallax=depth*0.3;
+      starCtx.save();
+      starCtx.translate((offsetX+tiltX*20)*parallax,(offsetY+tiltY*20)*parallax);
+      layer.forEach(star=>{
+        starCtx.fillStyle='#fff';
+        starCtx.fillRect(star.x,star.y,star.size,star.size);
+      });
+      starCtx.restore();
+    });
+    requestAnimationFrame(drawStarfield);
+  }
+
+  window.addEventListener('resize',initStarfield);
+  window.addEventListener('deviceorientation',e=>{
+    tiltX=(e.gamma||0)/45;
+    tiltY=(e.beta||0)/45;
+  });
 
   window.addEventListener('resize',sizePortalCanvas);
 
@@ -3908,6 +3999,8 @@ const loadPromises = [];
   });
 
   tryParseImplicitToken();
+  initStarfield();
+  requestAnimationFrame(drawStarfield);
   renderAll();
   renderPortalScene();
   attachSettingsHandlers();
