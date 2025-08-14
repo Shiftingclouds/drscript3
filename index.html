@@ -580,7 +580,8 @@
     <h3 style="margin:0 0 10px">Upload Images</h3>
     <div class="modal-grid" style="grid-template-columns:1fr 1fr">
       <div>
-        <div class="field"><label class="label">Select Files</label><input id="vizFiles" class="text" type="file" accept="image/*" multiple/></div>
+        <div class="field"><label class="label">Select Files</label><input id="vizFiles" class="text" type="file" accept="image/*,video/*" multiple/></div>
+        <div class="field"><label class="label">Video Link (optional)</label><input id="vizLink" class="text" placeholder="https://..."/></div>
         <div class="field"><label class="label">Name prefix (optional)</label><input id="vizName" class="text" placeholder="e.g. Hogwarts_"/></div>
       </div>
       <div>
@@ -986,9 +987,10 @@
     portals:[], 
     waitingRooms:[], 
     journal:[], 
-    playlists:[], 
-    images:[], 
-    dreams:[], 
+    playlists:[],
+    images:[],
+    videos:[],
+    dreams:[],
     lucidGoals:[], 
     techniques:[], 
     projections:[], 
@@ -1007,6 +1009,7 @@
   
   if(!state.playlists) state.playlists=[];
   if(!state.images) state.images=[];
+  if(!state.videos) state.videos=[];
   if(!state.dreams) state.dreams=[];
   if(!state.lucidGoals) state.lucidGoals=[];
   if(!state.techniques) state.techniques=[];
@@ -2008,10 +2011,11 @@
   const vizPortalFilter=qs('#vizPortalFilter'); 
   const vizTagBar=qs('#vizTagBar');
   const vizUploadModal=qs('#vizUploadModal'); 
-  const vizUploadBtn=qs('#vizUploadBtn'); 
-  const vizFiles=qs('#vizFiles'); 
-  const vizName=qs('#vizName'); 
-  const vizPortalSel=qs('#vizPortalSel'); 
+  const vizUploadBtn=qs('#vizUploadBtn');
+  const vizFiles=qs('#vizFiles');
+  const vizName=qs('#vizName');
+  const vizLink=qs('#vizLink');
+  const vizPortalSel=qs('#vizPortalSel');
   const vizTagsInput=qs('#vizTagsInput');
   const lightbox=qs('#lightbox'); 
   const lbImg=qs('#lbImg'); 
@@ -2087,9 +2091,14 @@
       vizPortalFilter.appendChild(o); 
     });
 
-    vizTagBar.innerHTML='';
-    const allTags = Array.from(new Set([...(state.images||[]), ...(state.videos||[])].flatMap(i=>i.tags||[]))).sort((a,b)=> a.localeCompare(b));
-    allTags.forEach(t=>{
+vizTagBar.innerHTML = '';
+const allTags = Array.from(
+  new Set([...(state.images || []), ...(state.videos || [])].flatMap(i => i.tags || []))
+).sort((a, b) => a.localeCompare(b));
+allTags.forEach(t => {
+
+});
+
       const chip=document.createElement('span'); 
       chip.className='tag'; 
       chip.textContent=t; 
@@ -2113,10 +2122,9 @@
       if(!byPortal.has(key)) byPortal.set(key, []);
       byPortal.get(key).push(rec);
     }
-
-    (state.images||[]).forEach(img=> addToGroup({...img, type:'image'}));
-    (state.videos||[]).forEach(vid=> addToGroup({...vid, type:'video'}));
-    derived.forEach(img=> addToGroup({...img, type:'image'}));
+(state.images || []).forEach(img => addToGroup({ ...img, type: 'image' }));
+(state.videos || []).forEach(vid => addToGroup({ ...vid, type: 'video' }));
+derived.forEach(img => addToGroup({ ...img, type: 'image' }));
 
     for(const [k,arr] of byPortal.entries()){
       byPortal.set(k, arr.filter(rec=>{
@@ -2151,26 +2159,30 @@
       items.forEach(it=>{
         const th=document.createElement('div');
         th.className='viz-thumb';
-        if(it.type==='video'){
-          const vid=document.createElement('video');
-          vid.src=it.src;
-          vid.muted=true;
-          vid.controls=true;
-          vid.style.width='100%';
-          vid.style.height='100%';
-          vid.style.objectFit='cover';
-          vid.style.position='absolute';
-          vid.style.inset='0';
-          if(it.poster) vid.poster=it.poster;
-          th.appendChild(vid);
-          th.style.cursor='default';
+if (it.type === 'video' || it.video) {
+  const vid = document.createElement('video');
+  vid.src = it.src;
+  vid.muted = true;
+  vid.controls = true;
+  vid.style.width = '100%';
+  vid.style.height = '100%';
+  vid.style.objectFit = 'cover';
+  vid.style.position = 'absolute';
+  vid.style.inset = '0';
+  if (it.poster) vid.poster = it.poster;
+  th.appendChild(vid);
+  th.style.cursor = 'default';
+  th.onclick = () => window.open(it.src, '_blank');
+}
+
         }else{
           th.style.backgroundImage=`url(${it.src})`;
           th.onclick=()=> openLightbox(it.src, `${title}${it.tags?.length? ' • '+it.tags.join(', '):''}`, it.derived ? null : it.id);
         }
         const cap=document.createElement('div');
         cap.className='cap';
-        cap.textContent=it.name || (it.derived? 'Embedded' : (it.type==='video'? 'Video' : 'Image'));
+cap.textContent = it.name || (it.derived ? 'Embedded' : ((it.type === 'video' || it.video) ? 'Video' : 'Image'));
+
         th.appendChild(cap);
         grid.appendChild(th);
       });
@@ -2187,49 +2199,83 @@
     none.value='-1'; 
     none.textContent='Unassigned'; 
     vizPortalSel.appendChild(none); 
-    (state.portals||[]).forEach((p,i)=>{ 
-      const o=document.createElement('option'); 
-      o.value=String(i); 
-      o.textContent=p.name||`Portal ${i+1}`; 
-      vizPortalSel.appendChild(o); 
+    (state.portals||[]).forEach((p,i)=>{
+      const o=document.createElement('option');
+      o.value=String(i);
+      o.textContent=p.name||`Portal ${i+1}`;
+      vizPortalSel.appendChild(o);
     });
-    if(vizFiles) vizFiles.value=''; 
-    if(vizName) vizName.value=''; 
-    if(vizTagsInput) vizTagsInput.value=''; 
+    if(vizFiles) vizFiles.value='';
+    if(vizName) vizName.value='';
+    if(vizLink) vizLink.value='';
+    if(vizTagsInput) vizTagsInput.value='';
     vizUploadModal.classList.add('open');
   });
   
   qs('#vizCancel')?.addEventListener('click', ()=> vizUploadModal.classList.remove('open'));
   qs('#vizSave')?.addEventListener('click', ()=>{
-    const files = Array.from(vizFiles.files||[]); 
-    if(!files.length){ 
-      vizUploadModal.classList.remove('open'); 
-      return; 
-    }
-    const prefix=(vizName.value||'').trim(); 
+    const files = Array.from(vizFiles.files||[]);
+    const link = (vizLink.value||'').trim();
+    const prefix=(vizName.value||'').trim();
     const tags=(vizTagsInput.value||'').split(',').map(s=>s.trim()).filter(Boolean);
     const portalIndex=parseInt(vizPortalSel.value||'-1',10);
-    let pending=files.length; 
-    if(!state.images) state.images=[];
-    files.forEach((f,idx)=>{ 
-      const r=new FileReader(); 
-      r.onload=()=>{ 
-        state.images.push({ 
-          id:uid(), 
-          src:r.result, 
-          name: prefix? `${prefix}${idx+1}` : (f.name||`image_${idx+1}`), 
-          tags:[...tags], 
-          portalIndex: isNaN(portalIndex)? -1 : portalIndex, 
-          created: Date.now() 
-        }); 
-        if(--pending===0){ 
-          save(); 
-          vizUploadModal.classList.remove('open'); 
-          renderVisualizers(); 
-        } 
-      }; 
-      r.readAsDataURL(f); 
-    });
+
+    if(files.length){
+      let pending=files.length;
+      if(!state.images) state.images=[];
+      if(!state.videos) state.videos=[];
+      files.forEach((f,idx)=>{
+        const r=new FileReader();
+        r.onload=()=>{
+          const base={
+            id:uid(),
+            src:r.result,
+            name: prefix? `${prefix}${idx+1}` : (f.name||`file_${idx+1}`),
+            tags:[...tags],
+            portalIndex: isNaN(portalIndex)? -1 : portalIndex,
+            created: Date.now()
+          };
+          if(f.type.startsWith('video/')){
+            state.videos.push({...base, video:true});
+          }else{
+            state.images.push(base);
+          }
+          if(--pending===0){
+            save();
+            vizUploadModal.classList.remove('open');
+            if(vizFiles) vizFiles.value='';
+            if(vizLink) vizLink.value='';
+            if(vizName) vizName.value='';
+            if(vizTagsInput) vizTagsInput.value='';
+            if(vizPortalSel) vizPortalSel.value='-1';
+            renderVisualizers();
+          }
+        };
+        r.readAsDataURL(f);
+      });
+    } else if(link){
+      if(!state.videos) state.videos=[];
+      state.videos.push({
+        id:uid(),
+        src:link,
+        name: prefix || link,
+        tags:[...tags],
+        portalIndex: isNaN(portalIndex)? -1 : portalIndex,
+        created: Date.now(),
+        link:true,
+        video:true
+      });
+      save();
+      vizUploadModal.classList.remove('open');
+      if(vizFiles) vizFiles.value='';
+      if(vizLink) vizLink.value='';
+      if(vizName) vizName.value='';
+      if(vizTagsInput) vizTagsInput.value='';
+      if(vizPortalSel) vizPortalSel.value='-1';
+      renderVisualizers();
+    } else {
+      vizUploadModal.classList.remove('open');
+    }
   });
 
   vizSearch?.addEventListener('input', ()=> renderVisualizers());
