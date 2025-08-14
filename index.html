@@ -183,7 +183,8 @@
 </style>
 </head>
 <body>
-<div class="app">
+<div id="launchScene"><canvas id="portalCanvas"></canvas><button id="enterApp">Enter Tracking App</button></div>
+<div class="app" style="display:none">
   <aside class="side">
     <div class="brand">
       <div class="logo">✨</div>
@@ -3614,6 +3615,7 @@
   
   tryParseImplicitToken();
   renderAll();
+  renderPortalScene();
   attachSettingsHandlers();
   setupAutoSync();
 
