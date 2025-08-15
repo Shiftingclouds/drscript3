@@ -1160,6 +1160,7 @@
   let starLayers=[];
   let portalSceneObjs=[];
   let offsetX=0, offsetY=0, scale=1;
+  let portalSceneToken = 0;
 // Canvas/graphics globals
 let dpr = window.devicePixelRatio || 1;
 const imageCache = new Map();
@@ -1358,6 +1359,7 @@ if (
   window.addEventListener('resize',sizePortalCanvas);
 
   async function renderPortalScene(){
+    const token = ++portalSceneToken;
 // Ensure the canvas is sized correctly, regardless of which helper exists
 (typeof resizePortalCanvas === 'function' ? resizePortalCanvas : sizePortalCanvas)();
 
@@ -1418,7 +1420,10 @@ if (img && !img.complete) {
 
     await Promise.all(loadPromises);
 
+    if (token !== portalSceneToken) return;
+
     function draw(){
+      if (token !== portalSceneToken) return;
       portalCtx.setTransform(1,0,0,1,0,0);
       portalCtx.clearRect(0,0,portalCanvas.width,portalCanvas.height);
 // Prepare canvas for HiDPI drawing (from main)
@@ -1517,7 +1522,7 @@ portalCtx.restore(); // end circular clip
     requestAnimationFrame(draw);
   }
 
-  function renderPortals(){
+  async function renderPortals(){
     portalGrid.innerHTML='';
     // Create tile always first
     const creator=document.createElement('div');
@@ -1552,12 +1557,12 @@ portalCtx.restore(); // end circular clip
       const del=document.createElement('button'); 
       del.className='btn small'; 
       del.textContent='Delete'; 
-      del.onclick=async()=>{ 
-        if(await askConfirm('Delete this portal?')){ 
-          state.portals.splice(idx,1); 
-          save(); 
-          renderPortals(); 
-        } 
+      del.onclick=async()=>{
+        if(await askConfirm('Delete this portal?')){
+          state.portals.splice(idx,1);
+          save();
+          await renderPortals();
+        }
       };
       actions.append(edit, del);
       card.append(circle, name, actions);
@@ -1565,7 +1570,7 @@ portalCtx.restore(); // end circular clip
     });
 
     qs('#portalEmpty').style.display = (state.portals||[]).length? 'none' : 'grid';
-    renderPortalScene();
+    await renderPortalScene();
   }
 
   function showPortalSummary(portal){
@@ -4141,7 +4146,6 @@ portalCtx.restore(); // end circular clip
     initStarfield();
     requestAnimationFrame(drawStarfield);
   });
-  renderPortalScene();
   // Delay heavy initialization until the user enters the app
   qs('#enterApp').addEventListener('click', () => {
     const launch = qs('#launchScene');
