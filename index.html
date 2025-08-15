@@ -37,6 +37,45 @@
   .main{padding:28px 28px 80px; overflow:auto}
   h2.title{font-size:36px; margin:0 0 14px}
 
+  .page{
+    position:relative;
+    z-index:0;
+  }
+  .page::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:radial-gradient(circle at 50% 50%, var(--aurora-1), transparent 60%);
+    filter:blur(20px);
+    opacity:.25;
+    pointer-events:none;
+    z-index:-1;
+  }
+  .page-portals::before{
+    background:radial-gradient(circle at 20% 20%, var(--aurora-1), transparent 60%), radial-gradient(circle at 80% 80%, var(--aurora-2), transparent 60%);
+  }
+  .page-journal::before{
+    background:radial-gradient(circle at 80% 20%, var(--aurora-2), transparent 60%), radial-gradient(circle at 20% 80%, var(--aurora-4), transparent 60%);
+  }
+  .page-playlists::before{
+    background:radial-gradient(circle at 0% 0%, var(--aurora-3), transparent 60%), radial-gradient(circle at 100% 100%, var(--aurora-1), transparent 60%);
+  }
+  .page-visualizers::before{
+    background:radial-gradient(circle at 100% 0%, var(--aurora-4), transparent 60%), radial-gradient(circle at 0% 100%, var(--aurora-2), transparent 60%);
+  }
+  .page-waiting::before{
+    background:radial-gradient(circle at 50% 0%, var(--aurora-1), transparent 60%), radial-gradient(circle at 50% 100%, var(--aurora-3), transparent 60%);
+  }
+  .page-lucid::before{
+    background:radial-gradient(circle at 0% 50%, var(--aurora-2), transparent 60%), radial-gradient(circle at 100% 50%, var(--aurora-4), transparent 60%);
+  }
+  .page-astral::before{
+    background:radial-gradient(circle at 20% 20%, var(--aurora-3), transparent 60%), radial-gradient(circle at 80% 80%, var(--aurora-4), transparent 60%);
+  }
+  .page-settings::before{
+    background:radial-gradient(circle at 100% 0%, var(--aurora-2), transparent 60%), radial-gradient(circle at 0% 100%, var(--aurora-1), transparent 60%);
+  }
+
   .btn{--bg:linear-gradient(180deg, var(--bg-1), var(--bg-0)); position:relative; color:var(--ink); padding:10px 14px; border-radius:12px; border:1px solid var(--border); cursor:pointer; font-weight:600; display:inline-flex; align-items:center; gap:10px; background:linear-gradient(120deg, rgba(255,255,255,.15), rgba(255,255,255,0)), var(--bg); transition:transform .2s ease}
   .btn::after{content:""; position:absolute; inset:-6px; border-radius:inherit; pointer-events:none; background:conic-gradient(from 0deg at 50% 50%, var(--aurora-1), var(--aurora-2), var(--aurora-3), var(--aurora-4), var(--aurora-1)); filter:blur(12px); opacity:0; transition:opacity .2s ease; z-index:-1}
   .btn:hover{transform:translateY(-1px)}
@@ -326,7 +365,7 @@
 
   <main class="main">
     <!-- Portals View -->
-    <section id="portals-view" class="view">
+    <section id="portals-view" class="view page page-portals">
       <h2 class="title">My DR Portals</h2>
       <p style="color:var(--muted); margin:-4px 0 14px">Create and manage your portals to different realities</p>
       <div id="portalGrid" class="portal-grid"></div>
@@ -334,7 +373,7 @@
     </section>
 
     <!-- Journal View -->
-    <section id="journal-view" class="view" hidden>
+    <section id="journal-view" class="view page page-journal" hidden>
       <h2 class="title">Journal</h2>
       <div class="toolbar"><button class="btn primary" id="newEntry">＋ New Entry</button></div>
       <div class="journal-toolbar">
@@ -353,7 +392,7 @@
     </section>
 
     <!-- Playlists View -->
-    <section id="playlists-view" class="view" hidden>
+    <section id="playlists-view" class="view page page-playlists" hidden>
       <h2 class="title">Playlists</h2>
       <div class="journal-toolbar">
         <input id="plSearch" class="text" placeholder="Search playlists or tracks..." style="min-width:240px"/>
@@ -364,7 +403,7 @@
     </section>
 
     <!-- Visualizers View -->
-    <section id="visualizers-view" class="view" hidden>
+    <section id="visualizers-view" class="view page page-visualizers" hidden>
       <h2 class="title">Visualizers</h2>
       <p style="color:var(--muted); margin:-4px 0 14px">Browse all images by portal. Click a thumbnail to view full-size.</p>
       <div class="viz-toolbar">
@@ -378,14 +417,14 @@
     </section>
 
     <!-- Waiting Rooms -->
-    <section id="waiting-view" class="view" hidden>
+    <section id="waiting-view" class="view page page-waiting" hidden>
       <h2 class="title">Waiting Rooms</h2>
       <p style="color:var(--muted); margin:-4px 0 14px">Create calming spaces and link them to portals.</p>
       <div id="wrGrid" class="wr-grid"></div>
     </section>
 
     <!-- Lucid Dreaming View -->
-    <section id="lucid-view" class="view" hidden>
+    <section id="lucid-view" class="view page page-lucid" hidden>
       <h2 class="title">Lucid Dreaming</h2>
       <p style="color:var(--muted); margin:-4px 0 14px">Track your lucid dreams, set goals, and monitor your progress</p>
       
@@ -486,7 +525,7 @@
     </section>
 
     <!-- Astral Projection View -->
-    <section id="astral-view" class="view" hidden>
+    <section id="astral-view" class="view page page-astral" hidden>
       <h2 class="title">Astral Projection</h2>
       <p style="color:var(--muted); margin:-4px 0 14px">Track your out-of-body experiences, set projection goals, and monitor your progress</p>
       
@@ -588,7 +627,7 @@
     </section>
 
     <!-- Settings View -->
-    <section id="settings-view" class="view" hidden>
+    <section id="settings-view" class="view page page-settings" hidden>
       <h2 class="title">Settings</h2>
       <p style="color:var(--muted); margin:-4px 0 14px">Connect Dropbox to sync your data across devices.</p>
       <div class="field"><label class="label">Dropbox App Key (from your Dropbox App Console)</label><input id="dbxAppKey" class="text" placeholder="paste your App Key"/></div>
