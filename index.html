@@ -68,6 +68,9 @@
   .page-scenarios::before{
     background:radial-gradient(circle at 0% 0%, var(--aurora-2), transparent 60%), radial-gradient(circle at 100% 100%, var(--aurora-3), transparent 60%);
   }
+  .page-collections::before{
+    background:radial-gradient(circle at 50% 0%, var(--aurora-3), transparent 60%), radial-gradient(circle at 50% 100%, var(--aurora-1), transparent 60%);
+  }
   .page-waiting::before{
     background:radial-gradient(circle at 50% 0%, var(--aurora-1), transparent 60%), radial-gradient(circle at 50% 100%, var(--aurora-3), transparent 60%);
   }
@@ -149,6 +152,9 @@
   .scenario-list{display:grid; gap:12px; margin-top:10px}
   .scenario-card{background:var(--bg-1); border:1px solid var(--border); border-radius:14px; padding:14px; display:grid; gap:6px}
   .scenario-actions{display:flex; gap:6px; justify-content:flex-end}
+  .collection-list{display:grid; gap:12px; margin-top:10px}
+  .collection-item{background:var(--bg-1); border:1px solid var(--border); border-radius:14px; padding:14px; display:flex; justify-content:space-between; align-items:center}
+  .collection-actions{display:flex; gap:6px}
   .entry{background:var(--bg-1); border:1px solid var(--border); border-radius:14px; padding:14px}
   .entry h4{margin:0 0 6px}
   .entry .meta{color:var(--faint); font-size:12px; display:flex; gap:10px; align-items:center}
@@ -368,6 +374,7 @@ button::-moz-focus-inner{
       <button data-view="playlists">🎵 <span>Playlists</span></button>
       <button data-view="visualizers">🖼️ <span>Visualizers</span></button>
       <button data-view="scenarios">📝 <span>Scenarios</span></button>
+      <button data-view="collections">📚 <span>Collections</span></button>
     </div>
 
     <div class="nav-section">SPECIAL</div>
@@ -448,6 +455,16 @@ button::-moz-focus-inner{
       <div id="scenarioTagBar" class="tagbar"></div>
       <div id="scenarioList" class="scenario-list"></div>
       <div id="scenarioEmpty" class="empty" style="display:none">No scenarios yet</div>
+    </section>
+
+    <!-- Collections View -->
+    <section id="collections-view" class="view page page-collections" hidden>
+      <h2 class="title">Collections</h2>
+      <div class="toolbar">
+        <button class="btn primary" id="collectionCreate">＋ New Collection</button>
+      </div>
+      <div id="collectionList" class="collection-list"></div>
+      <div id="collectionEmpty" class="empty" style="display:none">No collections yet</div>
     </section>
 
     <!-- Waiting Rooms -->
@@ -827,6 +844,7 @@ button::-moz-focus-inner{
     <h3 style="margin:0 0 10px">New Scenario</h3>
     <div class="field"><label class="label">Title</label><input id="scenarioTitle" class="text"/></div>
     <div class="field"><label class="label">Description</label><textarea id="scenarioDesc" class="textarea"></textarea></div>
+    <div class="field"><label class="label">Collection</label><select id="scenarioCollection" class="text"><option value="">Unassigned</option></select></div>
     <div class="field"><label class="label">Add Category</label><input id="scenarioCategoryInput" class="text" placeholder="Type and press Enter"/></div>
     <div class="field"><label class="label">Categories</label><div id="scenarioCategories" class="tagbar"></div></div>
     <div class="field"><label class="label">Add Tag(s)</label><input id="scenarioTagsInput" class="text" placeholder="Type and press Enter"/></div>
@@ -1193,6 +1211,7 @@ button::-moz-focus-inner{
     journal:[],
     playlists:[],
     scenarios:[],
+    collections:[],
     images:[],
     videos:[],
     dreams:[],
@@ -1215,7 +1234,8 @@ button::-moz-focus-inner{
   
   if(!state.playlists) state.playlists=[];
   if(!state.scenarios) state.scenarios=[];
-  if(state.scenarios) state.scenarios.forEach(sc=>{ sc.category ??= []; sc.tags ??= []; });
+  if(!state.collections) state.collections=[];
+  if(state.scenarios) state.scenarios.forEach(sc=>{ sc.category ??= []; sc.tags ??= []; sc.collectionId ??= null; });
   if(!state.images) state.images=[];
   if(!state.videos) state.videos=[];
   if(!state.dreams) state.dreams=[];
@@ -1327,6 +1347,7 @@ button::-moz-focus-inner{
     playlists:qs('#playlists-view'),
     visualizers:qs('#visualizers-view'),
     scenarios:qs('#scenarios-view'),
+    collections:qs('#collections-view'),
     waiting:qs('#waiting-view'),
     settings:qs('#settings-view'),
     lucid:qs('#lucid-view'),
@@ -1347,6 +1368,7 @@ button::-moz-focus-inner{
       if(view==='playlists') renderPlaylists();
       if(view==='visualizers') renderVisualizers();
       if(view==='scenarios') renderScenarios();
+      if(view==='collections') renderCollections();
       if(view==='lucid') renderLucidDreaming();
       if(view==='astral') renderAstralProjection();
     });
@@ -2366,6 +2388,87 @@ portalCtx.restore(); // end circular clip
   plSearch?.addEventListener('input', ()=> renderPlaylists());
   plPortalFilter?.addEventListener('change', ()=> renderPlaylists());
 
+  // ===== Collections =====
+  const collectionList=qs('#collectionList');
+  const collectionEmpty=qs('#collectionEmpty');
+
+  function renderCollections(){
+    collectionList.innerHTML='';
+    const cols=state.collections||[];
+    if(!cols.length){
+      collectionEmpty.style.display='grid';
+      return;
+    }
+    collectionEmpty.style.display='none';
+    cols.forEach((col, idx)=>{
+      const item=document.createElement('div');
+      item.className='collection-item';
+      const name=document.createElement('span');
+      name.textContent=col.title||'Untitled';
+      name.onclick=()=>{
+        const title=prompt('Collection name', col.title||'');
+        if(title){
+          col.title=title.trim();
+          save();
+          renderCollections();
+          populateScenarioCollections();
+          renderScenarios();
+        }
+      };
+      const actions=document.createElement('div');
+      actions.className='collection-actions';
+      const up=document.createElement('button');
+      up.className='btn small';
+      up.textContent='↑';
+      up.disabled=idx===0;
+      up.onclick=()=>{
+        const arr=state.collections;
+        [arr[idx-1], arr[idx]]=[arr[idx], arr[idx-1]];
+        save();
+        renderCollections();
+        renderScenarios();
+      };
+      const down=document.createElement('button');
+      down.className='btn small';
+      down.textContent='↓';
+      down.disabled=idx===cols.length-1;
+      down.onclick=()=>{
+        const arr=state.collections;
+        [arr[idx], arr[idx+1]]=[arr[idx+1], arr[idx]];
+        save();
+        renderCollections();
+        renderScenarios();
+      };
+      const del=document.createElement('button');
+      del.className='btn small';
+      del.textContent='✕';
+      del.onclick=async()=>{
+        if(await askConfirm('Delete this collection?')){
+          const removedId=col.id;
+          state.collections.splice(idx,1);
+          (state.scenarios||[]).forEach(sc=>{ if(sc.collectionId===removedId) sc.collectionId=null; });
+          save();
+          renderCollections();
+          renderScenarios();
+          populateScenarioCollections();
+        }
+      };
+      actions.append(up,down,del);
+      item.append(name,actions);
+      collectionList.appendChild(item);
+    });
+  }
+
+  qs('#collectionCreate')?.addEventListener('click',()=>{
+    const title=prompt('Collection name?');
+    if(!title) return;
+    if(!state.collections) state.collections=[];
+    state.collections.push({id:uid(), title:title.trim()});
+    save();
+    renderCollections();
+    populateScenarioCollections();
+  });
+
   // ===== Scenarios =====
   const scenarioList=qs('#scenarioList');
   const scenarioEmpty=qs('#scenarioEmpty');
@@ -2378,6 +2481,7 @@ portalCtx.restore(); // end circular clip
   const scenarioTagsInput=qs('#scenarioTagsInput');
   const scenarioTags=qs('#scenarioTags');
   const scenarioTagBar=qs('#scenarioTagBar');
+  const scenarioCollectionSel=qs('#scenarioCollection');
   const scCategoryMgr=createTagManager(scenarioCategories, scenarioCategoryInput);
   const scTagMgr=createTagManager(scenarioTags, scenarioTagsInput);
   let activeScenarioTagFilters=new Set();
@@ -2395,6 +2499,17 @@ portalCtx.restore(); // end circular clip
     opt.textContent=t.name;
     scenarioTemplateSel?.appendChild(opt);
   });
+
+  function populateScenarioCollections(){
+    if(!scenarioCollectionSel) return;
+    scenarioCollectionSel.innerHTML='<option value="">Unassigned</option>';
+    (state.collections||[]).forEach(c=>{
+      const opt=document.createElement('option');
+      opt.value=c.id;
+      opt.textContent=c.title;
+      scenarioCollectionSel.appendChild(opt);
+    });
+  }
 
   function renderScenarios(){
     scenarioTagBar.innerHTML='';
@@ -2427,7 +2542,23 @@ portalCtx.restore(); // end circular clip
       return;
     }
     scenarioEmpty.style.display='none';
+    const order=(state.collections||[]).map(c=>c.id);
+    items.sort((a,b)=>{
+      const ia=order.indexOf(a.collectionId);
+      const ib=order.indexOf(b.collectionId);
+      return (ia===-1?order.length:ia)-(ib===-1?order.length:ib);
+    });
+    let current=null;
     items.forEach(sc=>{
+      const cid=sc.collectionId||'';
+      if(cid!==current){
+        current=cid;
+        const h=document.createElement('h3');
+        const col=state.collections.find(c=>c.id===cid);
+        h.textContent=col?.title||'Unassigned';
+        h.style.margin='16px 0 8px';
+        scenarioList.appendChild(h);
+      }
       const card=document.createElement('div');
       card.className='scenario-card';
       const h4=document.createElement('h4');
@@ -2482,6 +2613,8 @@ portalCtx.restore(); // end circular clip
     scenarioDesc.value='';
     scCategoryMgr.clear();
     scTagMgr.clear();
+    populateScenarioCollections();
+    scenarioCollectionSel.value='';
     scenarioModal.classList.add('open');
     scenarioTitle.focus();
   });
@@ -2495,6 +2628,8 @@ portalCtx.restore(); // end circular clip
     scenarioDesc.value=tpl?.prompt||'';
     scCategoryMgr.clear();
     scTagMgr.clear();
+    populateScenarioCollections();
+    scenarioCollectionSel.value='';
     scenarioModal.classList.add('open');
     scenarioTitle.focus();
     scenarioTemplateSel.value='';
@@ -2513,12 +2648,14 @@ portalCtx.restore(); // end circular clip
     const prompt=scenarioTemplates.find(t=>t.id===templateId)?.prompt||'';
     const category=scCategoryMgr.getTags();
     const tags=scTagMgr.getTags();
-    state.scenarios.push({id:uid(), title, desc, templateId, prompt, category, tags});
+    const collectionId=scenarioCollectionSel.value||null;
+    state.scenarios.push({id:uid(), title, desc, templateId, prompt, category, tags, collectionId});
     save();
     closeModal(scenarioModal);
     currentTemplateId=null;
     scCategoryMgr.clear();
     scTagMgr.clear();
+    scenarioCollectionSel.value='';
     renderScenarios();
   });
 
@@ -4859,6 +4996,7 @@ portalCtx.restore(); // end circular clip
     renderPlaylists();
     renderVisualizers();
     renderScenarios();
+    renderCollections();
     if(views.settings && !views.settings.hidden){
       renderSettings();
     }
