@@ -365,6 +365,9 @@ button::-moz-focus-inner{
 </div>
 <div id="launchScene"><canvas id="portalCanvas"></canvas><button id="enterApp"><span class="enter-label">Enter Tracking App</span></button></div>
 <div class="app" style="display:none">
+  <div id="headerOverflow" class="header-overflow" style="position:absolute; top:16px; right:16px; z-index:10;">
+    <button class="btn small" id="qaRestore">Sync From Dropbox</button>
+  </div>
   <aside class="side">
     <div class="brand">
       <div class="logo">✨</div>
@@ -715,7 +718,7 @@ button::-moz-focus-inner{
         <label style="display:flex; gap:8px; align-items:center"><input type="checkbox" id="autoSyncToggle"/> Auto Sync</label>
         <label style="display:flex; gap:8px; align-items:center">Every <input id="autoSyncMins" class="text" style="width:80px" value="5"/> min</label>
         <button class="btn" id="syncNow">Sync Now</button>
-        <button class="btn" id="pullNow">Pull from Dropbox</button>
+        <button class="btn" id="restoreFromDropbox">Sync From Dropbox</button>
       </div>
       <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:12px 0" class="field">
         <button class="btn" id="exportAll">Export All (JSON)</button>
@@ -5286,8 +5289,18 @@ portalCtx.restore(); // end circular clip
       throw err;
     }
   }
-  
-  async function syncPull(){ 
+
+  function openRestoreOptions(){
+    if(!state.sync?.accessToken){
+      alert('Connect Dropbox first.');
+      return;
+    }
+    if(confirm('This will replace your local data with the version stored in Dropbox. Continue?')){
+      syncPull();
+    }
+  }
+
+  async function syncPull(){
     try{ 
       setSyncStatus('Pulling from Dropbox...');
       
@@ -5489,20 +5502,18 @@ portalCtx.restore(); // end circular clip
       save(); 
       setupAutoSync(); 
     });
-    qs('#syncNow')?.addEventListener('click', ()=>{ 
-      if(!state.sync?.accessToken){ 
-        alert('Connect Dropbox first.'); 
-        return; 
-      } 
-      syncPush(false); 
+    qs('#syncNow')?.addEventListener('click', ()=>{
+      if(!state.sync?.accessToken){
+        alert('Connect Dropbox first.');
+        return;
+      }
+      syncPush(false);
     });
-    qs('#pullNow')?.addEventListener('click', ()=>{ 
-      if(!state.sync?.accessToken){ 
-        alert('Connect Dropbox first.'); 
-        return; 
-      } 
-      syncPull(); 
-    });
+    const restoreHandler=()=>{
+      openRestoreOptions();
+    };
+    qs('#restoreFromDropbox')?.addEventListener('click', restoreHandler);
+    qs('#qaRestore')?.addEventListener('click', restoreHandler);
     qs('#testConnection')?.addEventListener('click', ()=>{ 
       testDropboxConnection(); 
     });
