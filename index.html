@@ -193,6 +193,18 @@
           drop-shadow(0 2px 4px rgba(0,0,0,.6));
 }
 
+/* Portal canvas inside main app view */
+#portals-view{position:relative}
+#portals-view #portalCanvas{
+  position:absolute;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  filter: drop-shadow(0 0 6px rgba(255,255,255,.15))
+          drop-shadow(0 2px 4px rgba(0,0,0,.6));
+}
+
 /* Enter App button: centered, styled, animated, fixed to viewport */
 #enterApp{
   position:fixed;            /* <- fixed so it ignores canvas panning/zoom */
@@ -4152,6 +4164,9 @@ portalCtx.restore(); // end circular clip
   qs('#enterApp').addEventListener('click', () => {
     const launch = qs('#launchScene');
     const app = qs('.app');
+    qs('#portals-view').appendChild(portalCanvas);
+    sizePortalCanvas();
+    renderPortalScene();
     launch.style.opacity = '0';
     app.style.display = 'grid';
     requestAnimationFrame(() => {
