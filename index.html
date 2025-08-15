@@ -439,7 +439,12 @@ button::-moz-focus-inner{
     <!-- Scenarios View -->
     <section id="scenarios-view" class="view page page-scenarios" hidden>
       <h2 class="title">Scenarios</h2>
-      <div class="toolbar"><button class="btn primary" id="scenarioCreate">＋ New Scenario</button></div>
+      <div class="toolbar">
+        <select id="scenarioTemplate" style="width:auto; margin-right:8px">
+          <option value="">Select Template...</option>
+        </select>
+        <button class="btn primary" id="scenarioCreate">＋ New Scenario</button>
+      </div>
       <div id="scenarioList" class="scenario-list"></div>
       <div id="scenarioEmpty" class="empty" style="display:none">No scenarios yet</div>
     </section>
@@ -2361,6 +2366,21 @@ portalCtx.restore(); // end circular clip
   const scenarioModal=qs('#scenarioModal');
   const scenarioTitle=qs('#scenarioTitle');
   const scenarioDesc=qs('#scenarioDesc');
+  const scenarioTemplateSel=qs('#scenarioTemplate');
+  let currentTemplateId=null;
+
+  const scenarioTemplates=[
+    {id:'setting', name:'Dream Setting', prompt:'Describe the dream setting in vivid detail.'},
+    {id:'character', name:'Dream Character', prompt:'Create a profile for a dream character.'},
+    {id:'goal', name:'Dream Goal', prompt:'Outline the goal you want to achieve in the dream.'}
+  ];
+
+  scenarioTemplates.forEach(t=>{
+    const opt=document.createElement('option');
+    opt.value=t.id;
+    opt.textContent=t.name;
+    scenarioTemplateSel?.appendChild(opt);
+  });
 
   function renderScenarios(){
     scenarioList.innerHTML='';
@@ -2403,21 +2423,40 @@ portalCtx.restore(); // end circular clip
   }
 
   qs('#scenarioCreate')?.addEventListener('click',()=>{
+    currentTemplateId=null;
     scenarioTitle.value='';
     scenarioDesc.value='';
     scenarioModal.classList.add('open');
     scenarioTitle.focus();
   });
 
-  qs('#scenarioCancel')?.addEventListener('click',()=>closeModal(scenarioModal));
+  scenarioTemplateSel?.addEventListener('change',()=>{
+    const id=scenarioTemplateSel.value;
+    if(!id) return;
+    currentTemplateId=id;
+    const tpl=scenarioTemplates.find(t=>t.id===id);
+    scenarioTitle.value='';
+    scenarioDesc.value=tpl?.prompt||'';
+    scenarioModal.classList.add('open');
+    scenarioTitle.focus();
+    scenarioTemplateSel.value='';
+  });
+
+  qs('#scenarioCancel')?.addEventListener('click',()=>{
+    closeModal(scenarioModal);
+    currentTemplateId=null;
+  });
   qs('#scenarioSave')?.addEventListener('click',()=>{
     const title=(scenarioTitle.value||'').trim();
     const desc=(scenarioDesc.value||'').trim();
     if(!title){ scenarioTitle.focus(); return; }
     if(!state.scenarios) state.scenarios=[];
-    state.scenarios.push({id:uid(), title, desc});
+    const templateId=currentTemplateId;
+    const prompt=scenarioTemplates.find(t=>t.id===templateId)?.prompt||'';
+    state.scenarios.push({id:uid(), title, desc, templateId, prompt});
     save();
     closeModal(scenarioModal);
+    currentTemplateId=null;
     renderScenarios();
   });
 
