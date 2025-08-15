@@ -8,6 +8,11 @@ body {
   font-family: var(--ff-h);
 }
 
+.title, h1 {
+  color: var(--ink);
+  text-shadow:0 0 8px rgba(255,255,255,.15);
+}
+
 .log, .codey {
   font-family: var(--ff-mono);
 }
