@@ -28,7 +28,7 @@ body {
 }
 
 /* Aurora theme tokens */
-.theme-aurora {
+  .theme-aurora {
   --ff-ui: 'Inter', system-ui, sans-serif;
   --ff-h: 'Playfair Display', serif;
   --ff-mono: 'Space Mono', monospace;
@@ -50,14 +50,15 @@ body {
   --bg-card: var(--bg-1);
   --accent: var(--aurora-2);
   --accent-2: var(--aurora-3);
-  --faint: var(--muted);
-}
+    --faint: var(--muted);
+    --parallax: 0px;
+  }
 
 .theme-aurora body {
   background: radial-gradient(circle at 50% 30%, var(--bg-1), var(--bg-0) 70%);
 }
 
-.theme-aurora body::before {
+  .theme-aurora body::before {
   content: "";
   position: fixed;
   inset: 0;
@@ -67,11 +68,12 @@ body {
     radial-gradient(circle at 80% 20%, var(--aurora-2), transparent 60%),
     radial-gradient(circle at 50% 80%, var(--aurora-3), var(--aurora-4) 60%, transparent 70%);
   mix-blend-mode: screen;
-  filter: blur(40px);
-  opacity: .35;
-  animation: aurora 28s linear infinite alternate;
-  z-index: 1;
-}
+    filter: blur(40px);
+    opacity: .35;
+    transform: translateY(calc(var(--parallax) * -1));
+    animation: aurora 28s linear infinite alternate;
+    z-index: 1;
+  }
 
 .theme-aurora #starfieldCanvas {
   width: 100%;
@@ -103,10 +105,10 @@ body {
 
 @keyframes aurora {
   0% {
-    transform: translate3d(-10%, -10%, 0) scale(1);
+    transform: translateY(calc(var(--parallax) * -1)) translate3d(-10%, -10%, 0) scale(1);
   }
   100% {
-    transform: translate3d(10%, 10%, 0) scale(1.1);
+    transform: translateY(calc(var(--parallax) * -1)) translate3d(10%, 10%, 0) scale(1.1);
   }
 }
 
