@@ -901,6 +901,10 @@ button::-moz-focus-inner{
     <div class="field"><label class="label">Categories</label><div id="scenarioCategories" class="tagbar"></div></div>
     <div class="field"><label class="label">Add Tag(s)</label><input id="scenarioTagsInput" class="text" placeholder="Type and press Enter"/></div>
     <div class="field"><label class="label">Tags</label><div id="scenarioTags" class="tagbar"></div></div>
+    <div class="field"><label class="label">Add Character</label><input id="scenarioCharsInput" class="text" placeholder="Type and press Enter"/></div>
+    <div class="field"><label class="label">Characters</label><div id="scenarioChars" class="tagbar"></div></div>
+    <div class="field"><label class="label">Add Location</label><input id="scenarioLocsInput" class="text" placeholder="Type and press Enter"/></div>
+    <div class="field"><label class="label">Locations</label><div id="scenarioLocs" class="tagbar"></div></div>
     <div class="field"><label class="label">Images</label><div id="scenarioImageStrip" class="image-strip"></div><button class="btn small" id="scenarioAddImageBtn" style="margin-top:8px">Add Images</button></div>
     <div class="actions"><button class="btn ghost" id="scenarioCancel">Cancel</button><button class="btn primary" id="scenarioSave">Save</button></div>
   </div>
@@ -1309,9 +1313,11 @@ button::-moz-focus-inner{
         sc.category ??= [];
         sc.tags ??= [];
         sc.collectionId ??= null;
-        sc.location ??= '';
+        if(sc.location && !sc.locations) sc.locations=[sc.location];
+        sc.locations ??= [];
         sc.characters ??= [];
         sc.imageIds ??= [];
+        delete sc.location;
       });
     });
     delete state.scenarios;
@@ -2623,6 +2629,10 @@ portalCtx.restore(); // end circular clip
   const scenarioCategories=qs('#scenarioCategories');
   const scenarioTagsInput=qs('#scenarioTagsInput');
   const scenarioTags=qs('#scenarioTags');
+  const scenarioCharsInput=qs('#scenarioCharsInput');
+  const scenarioChars=qs('#scenarioChars');
+  const scenarioLocsInput=qs('#scenarioLocsInput');
+  const scenarioLocs=qs('#scenarioLocs');
   const scenarioTagBar=qs('#scenarioTagBar');
   const scenarioSearch=qs('#scenarioSearch');
   const scenarioFilter=qs('#scenarioFilter');
@@ -2632,10 +2642,12 @@ portalCtx.restore(); // end circular clip
   const scenarioDescField=qs('#scenarioDescField');
   const scenarioSectionContainer=qs('#scenarioSectionContainer');
   const scenarioSetting=qs('#scenarioSetting');
-  const scenarioCharacters=qs('#scenarioCharacters');
+  const scenarioCharacterText=qs('#scenarioCharacters');
   const scenarioConflict=qs('#scenarioConflict');
   const scCategoryMgr=createTagManager(scenarioCategories, scenarioCategoryInput);
   const scTagMgr=createTagManager(scenarioTags, scenarioTagsInput);
+  const scCharMgr=createTagManager(scenarioChars, scenarioCharsInput);
+  const scLocMgr=createTagManager(scenarioLocs, scenarioLocsInput);
   const scenarioImageStrip=qs('#scenarioImageStrip');
   const scenarioAddImageBtn=qs('#scenarioAddImageBtn');
   const scenarioImgPicker=qs('#scenarioImagePicker');
@@ -2775,13 +2787,15 @@ portalCtx.restore(); // end circular clip
       collectionId: scenarioCollectionSel.value||'',
       categories: scCategoryMgr.getTags ? scCategoryMgr.getTags() : [],
       tags: scTagMgr.getTags ? scTagMgr.getTags() : [],
+      characters: scCharMgr.getTags ? scCharMgr.getTags() : [],
+      locations: scLocMgr.getTags ? scLocMgr.getTags() : [],
       mode,
       imageIds: scImageIds.slice()
     };
     if(mode==='prompt'){
       draft.sections={
         setting: scenarioSetting.value||'',
-        characters: scenarioCharacters.value||'',
+        characters: scenarioCharacterText.value||'',
         conflict: scenarioConflict.value||''
       };
     }else{
@@ -2807,7 +2821,7 @@ portalCtx.restore(); // end circular clip
       updateScenarioMode();
       if(draft.mode==='prompt'){
         scenarioSetting.value=draft.sections?.setting||'';
-        scenarioCharacters.value=draft.sections?.characters||'';
+        scenarioCharacterText.value=draft.sections?.characters||'';
         scenarioConflict.value=draft.sections?.conflict||'';
       }else{
         scenarioDesc.innerHTML=draft.content||'';
@@ -2815,6 +2829,8 @@ portalCtx.restore(); // end circular clip
       scenarioCollectionSel.value=draft.collectionId||'';
       if(draft.categories) scCategoryMgr.setTags?.(draft.categories);
       if(draft.tags) scTagMgr.setTags?.(draft.tags);
+      if(draft.characters) scCharMgr.setTags?.(draft.characters);
+      if(draft.locations) scLocMgr.setTags?.(draft.locations);
       scImageIds = draft.imageIds || [];
       renderScenarioImages();
       suppressDraftSave=false;
@@ -2863,10 +2879,12 @@ portalCtx.restore(); // end circular clip
       updateScenarioMode();
       scenarioDesc.innerHTML=templateId ? (scenarioTemplates.find(t=>t.id===templateId)?.prompt||'') : '';
       scenarioSetting.value='';
-      scenarioCharacters.value='';
+      scenarioCharacterText.value='';
       scenarioConflict.value='';
       scCategoryMgr.clear();
       scTagMgr.clear();
+      scCharMgr.clear();
+      scLocMgr.clear();
       scenarioCollectionSel.value='';
       scImageIds=[];
     }
@@ -2886,15 +2904,15 @@ portalCtx.restore(); // end circular clip
         const descHtml = sc.sections ? Object.values(sc.sections).join(' ') : (sc.content || sc.desc || '');
         const desc = descHtml.replace(/<[^>]*>/g,'').toLowerCase();
         const tags=(sc.tags||[]).map(t=>t.toLowerCase());
-        const location=(sc.location||'').toLowerCase();
+        const locations=(sc.locations||[]).map(l=>l.toLowerCase());
         const characters=(sc.characters||[]).map(c=>c.toLowerCase());
         switch(f){
           case 'tag': return tags.some(t=>t.includes(q));
-          case 'location': return location.includes(q);
+          case 'location': return locations.some(l=>l.includes(q));
           case 'character': return characters.some(c=>c.includes(q));
           default:
             return title.includes(q) || desc.includes(q) || tags.some(t=>t.includes(q)) ||
-              location.includes(q) || characters.some(c=>c.includes(q));
+              locations.some(l=>l.includes(q)) || characters.some(c=>c.includes(q));
         }
       });
     }
@@ -2905,6 +2923,12 @@ portalCtx.restore(); // end circular clip
     const lib=getActiveLibrary();
     scenarioTagBar.innerHTML='';
     const allTags=Array.from(new Set((lib.scenarios||[]).flatMap(s=>s.tags||[]))).sort((a,b)=>a.localeCompare(b));
+    const charCounts={};
+    const locCounts={};
+    (lib.scenarios||[]).forEach(s=>{
+      (s.characters||[]).forEach(c=> charCounts[c]=(charCounts[c]||0)+1);
+      (s.locations||[]).forEach(l=> locCounts[l]=(locCounts[l]||0)+1);
+    });
     allTags.forEach(t=>{
       const chip=document.createElement('span');
       chip.className='tag';
@@ -2998,6 +3022,22 @@ portalCtx.restore(); // end circular clip
       tags.style.display='flex';
       tags.style.gap='6px';
       tags.style.flexWrap='wrap';
+      (sc.characters||[]).forEach(c=>{
+        const chip=document.createElement('span');
+        chip.className='tag';
+        chip.textContent=c;
+        chip.title=`${charCounts[c]||0} scenario${(charCounts[c]||0)===1?'':'s'}`;
+        chip.onclick=()=>{ scenarioSearch.value=c; scenarioFilter.value='character'; filterScenarios(); };
+        tags.appendChild(chip);
+      });
+      (sc.locations||[]).forEach(l=>{
+        const chip=document.createElement('span');
+        chip.className='tag';
+        chip.textContent=l;
+        chip.title=`${locCounts[l]||0} scenario${(locCounts[l]||0)===1?'':'s'}`;
+        chip.onclick=()=>{ scenarioSearch.value=l; scenarioFilter.value='location'; filterScenarios(); };
+        tags.appendChild(chip);
+      });
       (sc.tags||[]).forEach(t=>{
         const chip=document.createElement('span');
         chip.className='tag';
@@ -3059,7 +3099,7 @@ portalCtx.restore(); // end circular clip
     if(mode==='prompt'){
       sections={
         setting:(scenarioSetting.value||'').trim(),
-        characters:(scenarioCharacters.value||'').trim(),
+        characters:(scenarioCharacterText.value||'').trim(),
         conflict:(scenarioConflict.value||'').trim()
       };
     }else{
@@ -3072,9 +3112,11 @@ portalCtx.restore(); // end circular clip
     const prompt=scenarioTemplates.find(t=>t.id===templateId)?.prompt||'';
     const category=scCategoryMgr.getTags();
     const tags=scTagMgr.getTags();
+    const characters=scCharMgr.getTags();
+    const locations=scLocMgr.getTags();
     const collectionId=scenarioCollectionSel.value||null;
     const id=currentScenarioId||uid();
-    const scData={id, title, templateId, prompt, category, tags, collectionId, location:'', characters:[], mode, imageIds:scImageIds.slice()};
+    const scData={id, title, templateId, prompt, category, tags, characters, locations, collectionId, mode, imageIds:scImageIds.slice()};
     if(mode==='prompt') scData.sections=sections;
     else scData.content=content;
     lib.scenarios.push(scData);
@@ -3085,12 +3127,14 @@ portalCtx.restore(); // end circular clip
     currentScenarioId=null;
     scCategoryMgr.clear();
     scTagMgr.clear();
+    scCharMgr.clear();
+    scLocMgr.clear();
     scenarioCollectionSel.value='';
     scenarioMode.value='free';
     updateScenarioMode();
     scenarioDesc.innerHTML='';
     scenarioSetting.value='';
-    scenarioCharacters.value='';
+    scenarioCharacterText.value='';
     scenarioConflict.value='';
     if(scenarioDraftIndicator) scenarioDraftIndicator.style.display='none';
     scImageIds=[];
@@ -3101,13 +3145,17 @@ portalCtx.restore(); // end circular clip
   scenarioTitle?.addEventListener('input', saveScenarioDraft);
   scenarioDesc?.addEventListener('input', saveScenarioDraft);
   scenarioSetting?.addEventListener('input', saveScenarioDraft);
-  scenarioCharacters?.addEventListener('input', saveScenarioDraft);
+  scenarioCharacterText?.addEventListener('input', saveScenarioDraft);
   scenarioConflict?.addEventListener('input', saveScenarioDraft);
   scenarioCollectionSel?.addEventListener('change', saveScenarioDraft);
   const scCatObserver=new MutationObserver(saveScenarioDraft);
   const scTagObserver=new MutationObserver(saveScenarioDraft);
+  const scCharObserver=new MutationObserver(saveScenarioDraft);
+  const scLocObserver=new MutationObserver(saveScenarioDraft);
   if(scenarioCategories) scCatObserver.observe(scenarioCategories,{childList:true});
   if(scenarioTags) scTagObserver.observe(scenarioTags,{childList:true});
+  if(scenarioChars) scCharObserver.observe(scenarioChars,{childList:true});
+  if(scenarioLocs) scLocObserver.observe(scenarioLocs,{childList:true});
 
   scenarioSearch?.addEventListener('input', ()=> filterScenarios());
   scenarioFilter?.addEventListener('change', ()=> filterScenarios());
