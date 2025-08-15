@@ -42,7 +42,7 @@
 .theme-aurora *,
 .theme-aurora *::before,
 .theme-aurora *::after {
-  transition: color 200ms, background-color 200ms, border-color 200ms;
+  transition: transform 200ms, opacity 200ms, filter 200ms;
 }
 
 .theme-aurora * {
@@ -99,7 +99,7 @@
     radial-gradient(circle at 80% 20%, var(--aurora-2), transparent 60%),
     radial-gradient(circle at 50% 80%, var(--aurora-3), var(--aurora-4) 60%, transparent 70%);
   mix-blend-mode: screen;
-    filter: blur(40px);
+    filter: blur(20px);
     opacity: .35;
     transform: translateY(calc(var(--parallax) * -1));
     animation: aurora 28s linear infinite alternate;
@@ -112,6 +112,7 @@
   display: block;
 }
 
+/* Shared surface styling */
 .theme-aurora .card,
 .theme-aurora .panel,
 .theme-aurora .sidebar {
@@ -123,12 +124,14 @@
 }
 
 .theme-aurora .card {
-  transition: transform .2s ease, box-shadow .2s ease;
+  box-shadow:none;
+  filter:drop-shadow(var(--shadow));
+  transition:transform .2s ease, filter .2s ease;
 }
 
 .theme-aurora .card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 14px 24px rgba(0,0,0,.5);
+  filter:drop-shadow(0 14px 24px rgba(0,0,0,.5));
 }
 
 .theme-aurora .panel .header {
