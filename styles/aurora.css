@@ -1,19 +1,22 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Playfair+Display:wght@500;700&family=Space+Mono:wght@400;700&display=swap');
 
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--ff-ui);
 }
 
 .title, h1, h2, h3 {
-  font-family: 'Playfair Display', serif;
+  font-family: var(--ff-h);
 }
 
 .log, .codey {
-  font-family: 'Space Mono', monospace;
+  font-family: var(--ff-mono);
 }
 
 /* Aurora theme tokens */
 .theme-aurora {
+  --ff-ui: 'Inter', system-ui, sans-serif;
+  --ff-h: 'Playfair Display', serif;
+  --ff-mono: 'Space Mono', monospace;
   --bg-0: #0a0e16;
   --bg-1: #0f1420;
   --ink: #e8e9ef;
