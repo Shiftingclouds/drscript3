@@ -64,6 +64,14 @@ body {
   display: block;
 }
 
+.card, .panel, .sidebar {
+  background:var(--glass);
+  border:1px solid var(--border);
+  backdrop-filter:blur(12px) saturate(120%);
+  border-radius:16px;
+  box-shadow:var(--shadow);
+}
+
 @keyframes aurora {
   0% {
     transform: translate3d(-10%, -10%, 0) scale(1);
