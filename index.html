@@ -906,8 +906,13 @@ button::-moz-focus-inner{
     <div class="field"><label class="label">Add Location</label><input id="scenarioLocsInput" class="text" placeholder="Type and press Enter"/></div>
     <div class="field"><label class="label">Locations</label><div id="scenarioLocs" class="tagbar"></div></div>
     <div class="field"><label class="label">Images</label><div id="scenarioImageStrip" class="image-strip"></div><button class="btn small" id="scenarioAddImageBtn" style="margin-top:8px">Add Images</button></div>
-    <div class="actions"><button class="btn ghost" id="scenarioCancel">Cancel</button><button class="btn primary" id="scenarioSave">Save</button></div>
-  </div>
+    <div class="actions">
+      <button class="btn ghost" id="scenarioCancel">Cancel</button>
+      <button class="btn" id="scenarioSaveDraft">Save as Draft</button>
+      <button class="btn primary" id="scenarioPublish">Publish Final</button>
+      <button class="btn" id="scenarioHistoryBtn">Version History</button>
+    </div>
+</div>
 </div>
 
 <!-- Scenario Image Picker -->
@@ -919,6 +924,17 @@ button::-moz-focus-inner{
       <label class="btn small" style="justify-content:center">Upload<input id="scenarioImgFile" type="file" accept="image/*" multiple style="display:none"/></label>
       <button class="btn small ghost" id="scenarioImgCancel">Cancel</button>
       <button class="btn small primary" id="scenarioImgDone">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Scenario Version History -->
+<div class="modal" id="scenarioHistoryModal" aria-hidden="true">
+  <div class="modal-card" style="width:min(400px,90vw)">
+    <h3 style="margin-top:0">Version History</h3>
+    <div id="scenarioVersionList" style="display:grid; gap:8px; max-height:60vh; overflow-y:auto"></div>
+    <div class="actions" style="margin-top:12px">
+      <button class="btn ghost" id="scenarioHistoryClose">Close</button>
     </div>
   </div>
 </div>
@@ -2622,6 +2638,7 @@ portalCtx.restore(); // end circular clip
   const scenarioList=qs('#scenarioList');
   const scenarioEmpty=qs('#scenarioEmpty');
   const scenarioModal=qs('#scenarioModal');
+  const scenarioModalTitle=scenarioModal?.querySelector('h3');
   const scenarioTitle=qs('#scenarioTitle');
   const scenarioDesc=qs('#scenarioDesc');
   const scenarioTemplateSel=qs('#scenarioTemplate');
@@ -2655,6 +2672,12 @@ portalCtx.restore(); // end circular clip
   const scenarioImgFile=qs('#scenarioImgFile');
   const scenarioImgCancel=qs('#scenarioImgCancel');
   const scenarioImgDone=qs('#scenarioImgDone');
+  const scenarioSaveDraft=qs('#scenarioSaveDraft');
+  const scenarioPublish=qs('#scenarioPublish');
+  const scenarioHistoryBtn=qs('#scenarioHistoryBtn');
+  const scenarioHistoryModal=qs('#scenarioHistoryModal');
+  const scenarioVersionList=qs('#scenarioVersionList');
+  const scenarioHistoryClose=qs('#scenarioHistoryClose');
   let scImageIds=[];
   const questionToggle=qs('#questionToggle');
   const questionContainer=qs('#questionContainer');
@@ -2861,32 +2884,162 @@ portalCtx.restore(); // end circular clip
     });
   }
 
-  function openScenarioEditor(templateId=null){
-    if(scenarioDraftIndicator) scenarioDraftIndicator.style.display='none';
-    populateScenarioCollections();
-    let restored=false;
-    const existing=localStorage.getItem('scenarioDraftCurrent');
-    if(existing && localStorage.getItem(scenarioDraftKey(existing))){
-      currentScenarioId=existing;
-      restored=loadScenarioDraft();
-    }else{
-      currentScenarioId=uid();
+  function getScenarioFinalContent(sc){
+    if(sc?.versions && sc.versions.length){
+      const v=[...sc.versions].reverse().find(v=>!v.draft)||sc.versions[sc.versions.length-1];
+      return v?.content||'';
     }
-    currentTemplateId=templateId;
-    if(!restored){
-      scenarioTitle.value='';
-      scenarioMode.value='free';
-      updateScenarioMode();
-      scenarioDesc.innerHTML=templateId ? (scenarioTemplates.find(t=>t.id===templateId)?.prompt||'') : '';
-      scenarioSetting.value='';
-      scenarioCharacterText.value='';
-      scenarioConflict.value='';
+    if(sc?.sections){
+      return Object.values(sc.sections).join(' ');
+    }
+    return sc?.content||'';
+  }
+
+  function saveScenario(publish){
+    const mode=scenarioMode.value;
+    const title=(scenarioTitle.value||'').trim();
+    let content='';
+    let sections=null;
+    if(mode==='prompt'){
+      sections={
+        setting:(scenarioSetting.value||'').trim(),
+        characters:(scenarioCharacterText.value||'').trim(),
+        conflict:(scenarioConflict.value||'').trim()
+      };
+      content=Object.values(sections).join('<br>');
+    }else{
+      content=(scenarioDesc.innerHTML||'').trim();
+    }
+    if(!title){ scenarioTitle.focus(); return; }
+    const lib=getActiveLibrary();
+    if(!lib.scenarios) lib.scenarios=[];
+    let sc=lib.scenarios.find(s=>s.id===currentScenarioId);
+    if(!sc){
+      sc={id:currentScenarioId||uid(), versions:[]};
+      lib.scenarios.push(sc);
+    }
+    sc.title=title;
+    sc.templateId=currentTemplateId;
+    sc.prompt=scenarioTemplates.find(t=>t.id===currentTemplateId)?.prompt||'';
+    sc.category=scCategoryMgr.getTags();
+    sc.tags=scTagMgr.getTags();
+    sc.characters=scCharMgr.getTags();
+    sc.locations=scLocMgr.getTags();
+    sc.collectionId=scenarioCollectionSel.value||null;
+    sc.mode=mode;
+    sc.imageIds=scImageIds.slice();
+    if(mode==='prompt') sc.sections=sections; else delete sc.sections;
+    const version={content, timestamp:Date.now(), draft:!publish};
+    sc.versions.push(version);
+    save();
+    if(publish){
+      clearScenarioDraft(sc.id);
+      closeModal(scenarioModal);
+      currentTemplateId=null;
+      currentScenarioId=null;
       scCategoryMgr.clear();
       scTagMgr.clear();
       scCharMgr.clear();
       scLocMgr.clear();
       scenarioCollectionSel.value='';
+      scenarioMode.value='free';
+      updateScenarioMode();
+      scenarioDesc.innerHTML='';
+      scenarioSetting.value='';
+      scenarioCharacterText.value='';
+      scenarioConflict.value='';
       scImageIds=[];
+      renderScenarioImages();
+      filterScenarios();
+    }else{
+      if(scenarioDraftIndicator){
+        scenarioDraftIndicator.textContent='Draft saved';
+        scenarioDraftIndicator.style.display='block';
+        setTimeout(()=>{ if(scenarioDraftIndicator) scenarioDraftIndicator.style.display='none'; },1500);
+      }
+      filterScenarios();
+    }
+  }
+
+  function editScenario(id){
+    const lib=getActiveLibrary();
+    const sc=(lib.scenarios||[]).find(s=>s.id===id);
+    if(sc) openScenarioEditor(null, sc);
+  }
+
+  function openScenarioHistory(){
+    const lib=getActiveLibrary();
+    const sc=(lib.scenarios||[]).find(s=>s.id===currentScenarioId);
+    if(!sc) return;
+    if(!scenarioVersionList) return;
+    scenarioVersionList.innerHTML='';
+    const versions=[...sc.versions||[]].sort((a,b)=>b.timestamp-a.timestamp);
+    versions.forEach((v,i)=>{
+      const row=document.createElement('div');
+      row.style.display='flex';
+      row.style.justifyContent='space-between';
+      row.style.alignItems='center';
+      const label=document.createElement('div');
+      label.textContent=new Date(v.timestamp).toLocaleString()+ (v.draft?' (draft)':'');
+      const btn=document.createElement('button');
+      btn.className='btn small';
+      btn.textContent='Restore';
+      btn.onclick=()=>{ scenarioDesc.innerHTML=v.content; closeModal(scenarioHistoryModal); };
+      row.append(label, btn);
+      scenarioVersionList.appendChild(row);
+    });
+    scenarioHistoryModal?.classList.add('open');
+  }
+
+  function openScenarioEditor(templateId=null, sc=null){
+    if(scenarioDraftIndicator) scenarioDraftIndicator.style.display='none';
+    populateScenarioCollections();
+    let restored=false;
+    if(scenarioModalTitle) scenarioModalTitle.textContent = sc ? 'Edit Scenario' : 'New Scenario';
+    if(sc){
+      currentScenarioId=sc.id;
+      currentTemplateId=sc.templateId||null;
+      scenarioTitle.value=sc.title||'';
+      scenarioMode.value=sc.mode||'free';
+      updateScenarioMode();
+      const latest=(sc.versions&&sc.versions.length)?sc.versions[sc.versions.length-1].content:(sc.content||'');
+      if(sc.mode==='prompt'){
+        scenarioSetting.value=sc.sections?.setting||'';
+        scenarioCharacterText.value=sc.sections?.characters||'';
+        scenarioConflict.value=sc.sections?.conflict||'';
+      }else{
+        scenarioDesc.innerHTML=latest;
+      }
+      scCategoryMgr.setTags(sc.category||[]);
+      scTagMgr.setTags(sc.tags||[]);
+      scCharMgr.setTags(sc.characters||[]);
+      scLocMgr.setTags(sc.locations||[]);
+      scenarioCollectionSel.value=sc.collectionId||'';
+      scImageIds=sc.imageIds?sc.imageIds.slice():[];
+    }else{
+      const existing=localStorage.getItem('scenarioDraftCurrent');
+      if(existing && localStorage.getItem(scenarioDraftKey(existing))){
+        currentScenarioId=existing;
+        restored=loadScenarioDraft();
+      }else{
+        currentScenarioId=uid();
+      }
+      currentTemplateId=templateId;
+      if(!restored){
+        scenarioTitle.value='';
+        scenarioMode.value='free';
+        updateScenarioMode();
+        scenarioDesc.innerHTML=templateId ? (scenarioTemplates.find(t=>t.id===templateId)?.prompt||'') : '';
+        scenarioSetting.value='';
+        scenarioCharacterText.value='';
+        scenarioConflict.value='';
+        scCategoryMgr.clear();
+        scTagMgr.clear();
+        scCharMgr.clear();
+        scLocMgr.clear();
+        scenarioCollectionSel.value='';
+        scImageIds=[];
+      }
     }
     renderScenarioImages();
     scenarioModal.classList.add('open');
@@ -2901,7 +3054,7 @@ portalCtx.restore(); // end circular clip
     if(q){
       items=items.filter(sc=>{
         const title=(sc.title||'').toLowerCase();
-        const descHtml = sc.sections ? Object.values(sc.sections).join(' ') : (sc.content || sc.desc || '');
+        const descHtml = sc.sections ? Object.values(sc.sections).join(' ') : getScenarioFinalContent(sc);
         const desc = descHtml.replace(/<[^>]*>/g,'').toLowerCase();
         const tags=(sc.tags||[]).map(t=>t.toLowerCase());
         const locations=(sc.locations||[]).map(l=>l.toLowerCase());
@@ -2998,7 +3151,7 @@ portalCtx.restore(); // end circular clip
       }else{
         const p=document.createElement('div');
         p.className='formatted';
-        p.innerHTML=sc.content || sc.desc || '';
+        p.innerHTML=getScenarioFinalContent(sc);
         p.style.margin='0';
         p.style.color='var(--muted)';
         card.appendChild(p);
@@ -3052,6 +3205,11 @@ portalCtx.restore(); // end circular clip
       });
       const actions=document.createElement('div');
       actions.className='scenario-actions';
+      const edit=document.createElement('button');
+      edit.className='btn small';
+      edit.textContent='Edit';
+      edit.onclick=(ev)=>{ ev.preventDefault(); ev.stopPropagation(); editScenario(sc.id); };
+      actions.appendChild(edit);
       const del=document.createElement('button');
       del.className='btn small';
       del.textContent='Delete';
@@ -3091,56 +3249,10 @@ portalCtx.restore(); // end circular clip
     currentScenarioId=null;
     if(scenarioDraftIndicator) scenarioDraftIndicator.style.display='none';
   });
-  qs('#scenarioSave')?.addEventListener('click',()=>{
-    const mode=scenarioMode.value;
-    const title=(scenarioTitle.value||'').trim();
-    let content='';
-    let sections=null;
-    if(mode==='prompt'){
-      sections={
-        setting:(scenarioSetting.value||'').trim(),
-        characters:(scenarioCharacterText.value||'').trim(),
-        conflict:(scenarioConflict.value||'').trim()
-      };
-    }else{
-      content=(scenarioDesc.innerHTML||'').trim();
-    }
-    if(!title){ scenarioTitle.focus(); return; }
-    const lib=getActiveLibrary();
-    if(!lib.scenarios) lib.scenarios=[];
-    const templateId=currentTemplateId;
-    const prompt=scenarioTemplates.find(t=>t.id===templateId)?.prompt||'';
-    const category=scCategoryMgr.getTags();
-    const tags=scTagMgr.getTags();
-    const characters=scCharMgr.getTags();
-    const locations=scLocMgr.getTags();
-    const collectionId=scenarioCollectionSel.value||null;
-    const id=currentScenarioId||uid();
-    const scData={id, title, templateId, prompt, category, tags, characters, locations, collectionId, mode, imageIds:scImageIds.slice()};
-    if(mode==='prompt') scData.sections=sections;
-    else scData.content=content;
-    lib.scenarios.push(scData);
-    save();
-    closeModal(scenarioModal);
-    currentTemplateId=null;
-    clearScenarioDraft(id);
-    currentScenarioId=null;
-    scCategoryMgr.clear();
-    scTagMgr.clear();
-    scCharMgr.clear();
-    scLocMgr.clear();
-    scenarioCollectionSel.value='';
-    scenarioMode.value='free';
-    updateScenarioMode();
-    scenarioDesc.innerHTML='';
-    scenarioSetting.value='';
-    scenarioCharacterText.value='';
-    scenarioConflict.value='';
-    if(scenarioDraftIndicator) scenarioDraftIndicator.style.display='none';
-    scImageIds=[];
-    renderScenarioImages();
-    filterScenarios();
-  });
+  scenarioSaveDraft?.addEventListener('click',()=> saveScenario(false));
+  scenarioPublish?.addEventListener('click',()=> saveScenario(true));
+  scenarioHistoryBtn?.addEventListener('click',()=> openScenarioHistory());
+  scenarioHistoryClose?.addEventListener('click',()=> closeModal(scenarioHistoryModal));
 
   scenarioTitle?.addEventListener('input', saveScenarioDraft);
   scenarioDesc?.addEventListener('input', saveScenarioDraft);
