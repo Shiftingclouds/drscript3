@@ -173,6 +173,7 @@
   .rte .rtebar input[type="file"]{display:none}
   .rte .area{min-height:240px; padding:14px; outline:none}
   .rte .area img{max-width:100%; border-radius:10px; border:1px solid var(--border)}
+  #scenarioDesc.question-placeholder{color:var(--muted)}
 
   /* Drawer + Modals */
   .drawer{position:fixed; inset:auto 0 0 0; height:78vh; background:linear-gradient(180deg, var(--bg-1), var(--bg-0)); border-top:1px solid var(--border); box-shadow:var(--shadow); translate:0 110%; transition:.25s ease; z-index:200}
@@ -865,8 +866,16 @@ button::-moz-focus-inner{
           <button data-cmd="italic"><em>I</em></button>
           <button data-cmd="insertUnorderedList">• List</button>
           <button data-cmd="hiliteColor" data-arg="var(--aurora-4)">HL</button>
+          <button id="questionToggle" style="margin-left:auto">Show Questions</button>
         </div>
         <div id="scenarioDesc" class="area" contenteditable="true" spellcheck="false" style="min-height:120px"></div>
+        <div id="questionContainer" style="display:none; padding:8px">
+          <div id="questionPrompt" style="margin-bottom:6px; color:var(--muted)"></div>
+          <div style="display:flex; gap:6px">
+            <button class="btn small" id="questionInsert">Insert Question</button>
+            <button class="btn small ghost" id="questionHide">Hide Questions</button>
+          </div>
+        </div>
       </div>
     </div>
     <div id="scenarioDraftIndicator" style="display:none; font-size:12px; color:var(--muted); text-align:right; margin:-8px 0 8px">Draft saved</div>
@@ -2589,6 +2598,18 @@ portalCtx.restore(); // end circular clip
   const scenarioDraftIndicator=qs('#scenarioDraftIndicator');
   const scCategoryMgr=createTagManager(scenarioCategories, scenarioCategoryInput);
   const scTagMgr=createTagManager(scenarioTags, scenarioTagsInput);
+  const questionToggle=qs('#questionToggle');
+  const questionContainer=qs('#questionContainer');
+  const questionPromptEl=qs('#questionPrompt');
+  const questionInsert=qs('#questionInsert');
+  const questionHide=qs('#questionHide');
+  const questionPrompts=[
+    'Who is present?',
+    'Where does this take place?',
+    'What is the main conflict?',
+    'How do the characters feel?'
+  ];
+  let currentQuestionIndex=0;
   let activeScenarioTagFilters=new Set();
   let currentTemplateId=null;
   let currentScenarioId=null;
@@ -2606,6 +2627,39 @@ portalCtx.restore(); // end circular clip
     opt.value=t.id;
     opt.textContent=t.name;
     scenarioTemplateSel?.appendChild(opt);
+  });
+
+  questionToggle?.addEventListener('click', ()=>{
+    if(!questionContainer||!questionPromptEl) return;
+    if(questionContainer.style.display==='none'||!questionContainer.style.display){
+      questionContainer.style.display='block';
+      questionToggle.textContent='Next Question';
+    }else{
+      currentQuestionIndex=(currentQuestionIndex+1)%questionPrompts.length;
+    }
+    questionPromptEl.textContent=questionPrompts[currentQuestionIndex];
+  });
+
+  questionInsert?.addEventListener('click', ()=>{
+    const q=questionPromptEl?.textContent||'';
+    if(!q) return;
+    if(!scenarioDesc.textContent.trim()){
+      scenarioDesc.textContent=q;
+      scenarioDesc.classList.add('question-placeholder');
+      const clear=()=>{
+        scenarioDesc.textContent='';
+        scenarioDesc.classList.remove('question-placeholder');
+        scenarioDesc.removeEventListener('focus', clear);
+      };
+      scenarioDesc.addEventListener('focus', clear, {once:true});
+    }else{
+      scenarioDesc.innerHTML+=(scenarioDesc.innerHTML?'<br><br>':'')+q;
+    }
+  });
+
+  questionHide?.addEventListener('click', ()=>{
+    questionContainer.style.display='none';
+    questionToggle.textContent='Show Questions';
   });
 
   function scenarioDraftKey(id){
