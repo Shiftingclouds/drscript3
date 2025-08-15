@@ -5695,7 +5695,10 @@ portalCtx.restore(); // end circular clip
         console.warn('Hash mismatches detected:', mediaHashMismatches);
       }
       setSyncStatus('Restore complete');
-      qs('#undoRestore')?.style.display='inline-block';
+      const undoRestoreBtn = qs('#undoRestore');
+      if(undoRestoreBtn){
+        undoRestoreBtn.style.display='inline-block';
+      }
     }catch(err){
       restoreSnapshot = null;
       console.error('Restore failed:', err);
