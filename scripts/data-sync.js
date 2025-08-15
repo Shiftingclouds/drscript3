@@ -5,7 +5,7 @@ const path = require('path');
 const DATA_DIR = path.resolve(__dirname, '..', 'data');
 const COLLECTIONS = path.join(DATA_DIR, 'collections.json');
 const MEDIA_INDEX = path.join(DATA_DIR, 'media-index.json');
-const BACKUP_BASE = path.join(DATA_DIR, 'local_backups');
+const BACKUP_BASE = path.join(DATA_DIR, 'local-backups');
 const LOG_FILE = path.join(DATA_DIR, 'merge.log');
 
 function readJson(file) {
@@ -40,7 +40,7 @@ function mergeArrays(existing, incoming, type, conflictDir, conflicts) {
     if (map.has(item.id)) {
       const current = map.get(item.id);
       if (JSON.stringify(current) !== JSON.stringify(item)) {
-        const conflictFile = path.join(conflictDir, `${type}_${item.id}_conflictCopy.json`);
+        const conflictFile = path.join(conflictDir, `${type}-${item.id}-conflict-copy.json`);
         fs.writeFileSync(conflictFile, JSON.stringify(current, null, 2));
         conflicts.push(`${type}:${item.id} -> ${conflictFile}`);
       }
