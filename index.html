@@ -1095,11 +1095,18 @@
       localStorage.setItem(storeKey, JSON.stringify(state));
     }catch(err){
       if(err?.name==='QuotaExceededError'){
-        quota=true;
         console.warn('Storage quota exceeded, state not fully saved');
       }else{
         console.error('Save failed', err);
       }
+      setSyncStatus('Local save failed: ' + err.message);
+      const m = qs('#storageModal');
+      if(m){
+        m.classList.add('open');
+      }else if(typeof alert==='function'){
+        alert('Local save failed. Try freeing up storage or checking browser settings.');
+      }
+      return;
     }
     if(state.sync){
       try{
