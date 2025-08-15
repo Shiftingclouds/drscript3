@@ -1,5 +1,5 @@
 (() => {
-  const MEDIA_INDEX_FILE = 'media_index.json';
+  const MEDIA_INDEX_FILE = 'data/media-index.json';
   const EAGER_LIMIT = 4 * 1024 * 1024; // 4MB
 
   function openMediaDB() {
