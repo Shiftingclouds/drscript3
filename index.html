@@ -1202,6 +1202,7 @@ let tiltX = 0, tiltY = 0;
   let dragMoved=false;
   let dragPortal=null;
   let dragPointerId=null;
+  let dragVX=0, dragVY=0;
 
   portalCanvas.addEventListener('pointerdown',e=>{
     activePointers.set(e.pointerId,e);
@@ -1220,9 +1221,14 @@ if (!isPanning) {
   // Pick a nearby portal to interact with
   dragPortal = portalSceneObjs.find(o => Math.hypot(o.x - x, o.y - y) < o.r * 2) || null;
   dragPointerId = dragPortal ? e.pointerId : null;
-
-  if (dragPortal && portalCanvas.setPointerCapture) {
-    try { portalCanvas.setPointerCapture(e.pointerId); } catch {}
+  if (dragPortal) {
+    dragPortal.vx = 0;
+    dragPortal.vy = 0;
+    dragVX = 0;
+    dragVY = 0;
+    if (portalCanvas.setPointerCapture) {
+      try { portalCanvas.setPointerCapture(e.pointerId); } catch {}
+    }
   }
 } else {
   dragPortal = null;
@@ -1258,6 +1264,8 @@ if (!isPanning) {
         dragPortal.cy += dy/scale;
         dragPortal.x = dragPortal.cx + Math.cos(dragPortal.angle) * dragPortal.orbitRadius;
         dragPortal.y = dragPortal.cy + Math.sin(dragPortal.angle) * dragPortal.orbitRadius;
+        dragVX = dx/scale;
+        dragVY = dy/scale;
       }
       lastX=e.clientX;
       lastY=e.clientY;
@@ -1287,6 +1295,10 @@ if (
     }
     activePointers.delete(e.pointerId);
     if(e.pointerId===dragPointerId){
+      if (dragPortal) {
+        dragPortal.vx = dragVX * 0.1;
+        dragPortal.vy = dragVY * 0.1;
+      }
       dragPortal=null;
       dragPointerId=null;
     }
