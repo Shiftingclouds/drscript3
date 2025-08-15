@@ -11,3 +11,26 @@ body {
 .log, .codey {
   font-family: 'Space Mono', monospace;
 }
+
+/* Aurora theme tokens */
+.theme-aurora {
+  --bg-0: #0a0e16;
+  --bg-1: #0f1420;
+  --ink: #e8e9ef;
+  --muted: #a9adbb;
+  --aurora-1: #7ef9a9;
+  --aurora-2: #7c6cff;
+  --aurora-3: #45d1ff;
+  --aurora-4: #ffd7a8;
+  --border: rgba(255, 255, 255, .12);
+  --glass: rgba(18, 22, 30, .55);
+  --shadow: 0 12px 40px rgba(0, 0, 0, .45);
+
+  /* legacy variable aliases */
+  --bg-primary: var(--bg-0);
+  --bg-elev: var(--bg-1);
+  --bg-card: var(--bg-1);
+  --accent: var(--aurora-2);
+  --accent-2: var(--aurora-3);
+  --faint: var(--muted);
+}
