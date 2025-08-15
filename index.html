@@ -1251,6 +1251,7 @@
   const portalCtx=portalCanvas.getContext('2d');
   const starCanvas=qs('#starfieldCanvas');
   const starCtx=starCanvas.getContext('2d');
+  const enterApp = qs('#enterApp');
   let starLayers=[];
   let portalSceneObjs=[];
   let offsetX=0, offsetY=0, scale=1;
@@ -1259,6 +1260,18 @@
 let dpr = window.devicePixelRatio || 1;
 const imageCache = new Map();
 let tiltX = 0, tiltY = 0;
+let buttonBounds = { left: 0, right: 0, top: 0, bottom: 0 };
+function updateButtonBounds(){
+  const enterRect = enterApp.getBoundingClientRect();
+  const canvasRect = portalCanvas.getBoundingClientRect();
+  buttonBounds = {
+    left: (enterRect.left - canvasRect.left - offsetX) / scale,
+    right: (enterRect.right - canvasRect.left - offsetX) / scale,
+    top: (enterRect.top - canvasRect.top - offsetY) / scale,
+    bottom: (enterRect.bottom - canvasRect.top - offsetY) / scale
+  };
+}
+window.addEventListener('resize', updateButtonBounds);
 
   portalCanvas.style.touchAction='none';
   portalCanvas.addEventListener('contextmenu',e=>e.preventDefault());
@@ -1538,6 +1551,8 @@ portalCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       portalCtx.translate(offsetX,offsetY);
       portalCtx.scale(scale,scale);
+      updateButtonBounds();
+      const bounds = buttonBounds;
       portalSceneObjs.forEach(o=>{
 // Apply random jitter
 o.vx += (Math.random() - 0.5) * 0.02;
@@ -1561,10 +1576,40 @@ o.y = o.cy + Math.sin(o.angle) * o.orbitRadius;
 if (o.x < o.r) { o.x = o.r; o.vx *= -0.5; o.cx = o.x - Math.cos(o.angle) * o.orbitRadius; }
 else if (o.x > portalCanvas.width - o.r) { o.x = portalCanvas.width - o.r; o.vx *= -0.5; o.cx = o.x - Math.cos(o.angle) * o.orbitRadius; }
 
-if (o.y < o.r) { o.y = o.r; o.vy *= -0.5; o.cy = o.y - Math.sin(o.angle) * o.orbitRadius; }
-else if (o.y > portalCanvas.height - o.r) { o.y = portalCanvas.height - o.r; o.vy *= -0.5; o.cy = o.y - Math.sin(o.angle) * o.orbitRadius; }
+  if (o.y < o.r) { o.y = o.r; o.vy *= -0.5; o.cy = o.y - Math.sin(o.angle) * o.orbitRadius; }
+  else if (o.y > portalCanvas.height - o.r) { o.y = portalCanvas.height - o.r; o.vy *= -0.5; o.cy = o.y - Math.sin(o.angle) * o.orbitRadius; }
 
-// Rendering: drop shadow behind orb
+  // Check collision with enterApp button
+  const nearestX = Math.max(bounds.left, Math.min(o.x, bounds.right));
+  const nearestY = Math.max(bounds.top, Math.min(o.y, bounds.bottom));
+  const dx = o.x - nearestX;
+  const dy = o.y - nearestY;
+  if (dx * dx + dy * dy < o.r * o.r) {
+    const distLeft = Math.abs((o.x + o.r) - bounds.left);
+    const distRight = Math.abs(bounds.right - (o.x - o.r));
+    const distTop = Math.abs((o.y + o.r) - bounds.top);
+    const distBottom = Math.abs(bounds.bottom - (o.y - o.r));
+    const minDist = Math.min(distLeft, distRight, distTop, distBottom);
+    if (minDist === distLeft) {
+      o.x = bounds.left - o.r;
+      o.vx *= -0.5;
+      o.cx = o.x - Math.cos(o.angle) * o.orbitRadius;
+    } else if (minDist === distRight) {
+      o.x = bounds.right + o.r;
+      o.vx *= -0.5;
+      o.cx = o.x - Math.cos(o.angle) * o.orbitRadius;
+    } else if (minDist === distTop) {
+      o.y = bounds.top - o.r;
+      o.vy *= -0.5;
+      o.cy = o.y - Math.sin(o.angle) * o.orbitRadius;
+    } else {
+      o.y = bounds.bottom + o.r;
+      o.vy *= -0.5;
+      o.cy = o.y - Math.sin(o.angle) * o.orbitRadius;
+    }
+  }
+
+  // Rendering: drop shadow behind orb
 portalCtx.save();
 portalCtx.shadowColor = 'rgba(0,0,0,0.5)';
 portalCtx.shadowBlur = 10;
