@@ -1343,6 +1343,7 @@ button::-moz-focus-inner{
 
   const DB_NAME = 'drscript';
   const DB_VERSION = 1;
+  const APP_VERSION = 1;
 
   function openAppDB(){
     return new Promise((resolve,reject)=>{
@@ -5271,6 +5272,34 @@ portalCtx.restore(); // end circular clip
     if(el) el.textContent = 'Status: ' + msg + pct;
     console.log('Sync status:', msg, progress);
   }
+
+  function handleSyncError(err){
+    console.error('Sync error:', err);
+    let message = err.message || 'An error occurred';
+    let action = null;
+    switch(err?.code || err?.status){
+      case 'AuthExpired':
+      case 401:
+        message = 'Authentication expired. Please reconnect to Dropbox.';
+        action = () => startOAuth && startOAuth();
+        break;
+      case 'NotFound':
+      case 404:
+        message = 'Requested file not found on Dropbox.';
+        action = () => openRestoreOptions && openRestoreOptions();
+        break;
+      case 'VersionTooNew':
+        message = 'Backup was created with a newer app version. Please update and try again.';
+        break;
+      case 'IntegrityError':
+        message = 'Downloaded data failed integrity checks.';
+        break;
+    }
+    setSyncStatus(message);
+    if(action && confirm(message + ' Open settings now?')){
+      try{ action(); }catch(e){ console.error('CTA action failed', e); }
+    }
+  }
   
   async function dbxUpload(path, blob, rev){
     try {
@@ -5358,18 +5387,18 @@ portalCtx.restore(); // end circular clip
       throw err;
     }
   }
-  
-  async function dbxDownload(path){ 
+
+  async function dbxDownloadStream(path){
     if(!state.sync?.accessToken) {
       throw new Error('No access token available');
     }
-    
+
     const url = 'https://content.dropboxapi.com/2/files/download';
     const headers = {
       'Authorization': `Bearer ${state.sync.accessToken}`,
       'Dropbox-API-Arg': JSON.stringify({ path })
     };
-    
+
     let response = await fetch(url, {
       method: 'POST',
       headers
@@ -5385,21 +5414,57 @@ portalCtx.restore(); // end circular clip
 
     if(!response.ok) {
       const errorText = await response.text();
-      console.error('Download failed:', response.status, errorText);
-
-      if(response.status === 401) {
+      if(response.status === 401){
         state.sync.accessToken = '';
         state.sync.refreshToken = '';
         save();
-        const err401 = new Error('Access token expired or invalid');
-        err401.status = 401;
-        throw err401;
       }
-
       const err = new Error(`Download failed: ${response.status} - ${errorText}`);
       err.status = response.status;
+      if(response.status === 401) err.code = 'AuthExpired';
+      else if(response.status === 404) err.code = 'NotFound';
       throw err;
     }
+
+    return response;
+  }
+
+  async function parseJsonArrayStream(response, onItem, onProgress){
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let depth = 0;
+    let inString = false;
+    let start = 0;
+    let bytesRead = 0;
+    const total = Number(response.headers.get('Content-Length')) || 0;
+    while(true){
+      const {value, done} = await reader.read();
+      if(done) break;
+      bytesRead += value.byteLength;
+      buffer += decoder.decode(value, {stream:true});
+      for(let i=0;i<buffer.length;i++){
+        const ch = buffer[i];
+        if(ch === '"' && buffer[i-1] !== '\\') inString = !inString;
+        if(inString) continue;
+        if(ch === '{'){
+          if(depth++ === 0) start = i;
+        }else if(ch === '}'){
+          if(--depth === 0){
+            const objStr = buffer.slice(start, i+1);
+            try{ onItem(JSON.parse(objStr)); }catch(e){ console.error('JSON parse error', e); }
+            buffer = buffer.slice(i+1);
+            i = -1;
+          }
+        }
+      }
+      onProgress && onProgress(bytesRead, total);
+    }
+    return bytesRead;
+  }
+
+  async function dbxDownload(path){
+    const response = await dbxDownloadStream(path);
 
     if(path === (state.sync?.path || '/Apps/DR Script Builder/data.json')){
       const meta = response.headers.get('Dropbox-API-Result');
@@ -5437,7 +5502,11 @@ portalCtx.restore(); // end circular clip
     }
     if(!response.ok){
       const t = await response.text();
-      throw new Error(`Download failed: ${response.status} - ${t}`);
+      const err = new Error(`Download failed: ${response.status} - ${t}`);
+      err.status = response.status;
+      if(response.status === 401) err.code = 'AuthExpired';
+      else if(response.status === 404) err.code = 'NotFound';
+      throw err;
     }
 
     const meta = response.headers.get('Dropbox-API-Result');
@@ -5454,7 +5523,11 @@ portalCtx.restore(); // end circular clip
       }
       if(!r.ok){
         const t = await r.text();
-        throw new Error(`Download chunk failed: ${r.status} - ${t}`);
+        const err = new Error(`Download chunk failed: ${r.status} - ${t}`);
+        err.status = r.status;
+        if(r.status === 401) err.code = 'AuthExpired';
+        else if(r.status === 404) err.code = 'NotFound';
+        throw err;
       }
       chunks.push(await r.arrayBuffer());
       offset = end + 1;
@@ -5463,6 +5536,9 @@ portalCtx.restore(); // end circular clip
     const blob = new Blob(chunks, {type: metadata?.mime_type || 'application/octet-stream'});
     if(expectedHash && metadata?.content_hash && expectedHash !== metadata.content_hash){
       mediaHashMismatches.push({path, expected: expectedHash, actual: metadata.content_hash});
+      const err = new Error('Content hash mismatch');
+      err.code = 'IntegrityError';
+      throw err;
     }
     return {blob, contentHash: metadata.content_hash};
   }
@@ -5519,7 +5595,7 @@ portalCtx.restore(); // end circular clip
           catch(e){ console.error('Auto-pull after conflict failed', e); }
         }
       }
-      if(!silent) setSyncStatus('Push failed: ' + err.message);
+      if(!silent) handleSyncError(err);
       throw err;
     }
   }
@@ -5580,19 +5656,37 @@ portalCtx.restore(); // end circular clip
       setSyncStatus('Restoring from Dropbox...');
       const root = state.sync?.dropboxRootPath || BACKUP_ROOT_PATH;
       if(opts.media){
-        const indexBlob = await dbxDownload(`${root}/${MEDIA_INDEX_FILE}`);
-        const indexText = await indexBlob.text();
-        let index;
-        try{ index = JSON.parse(indexText); }
-        catch{ index = {}; }
-        const entries = Array.isArray(index) ? index : (index.files ? index.files : Object.values(index));
-        for(const item of entries){
-          if(!item) continue;
-          const rel = item.path || item.path_display || item.name;
-          const expected = item.sha256 || item.content_hash || item.hash;
-          const fullPath = `${root}/media/${rel}`;
-          await dbxDownloadVerified(fullPath, expected);
+        const indexResponse = await dbxDownloadStream(`${root}/${MEDIA_INDEX_FILE}`);
+        const entries = [];
+        await parseJsonArrayStream(indexResponse, item=>entries.push(item), (loaded,total)=>setSyncStatus('Fetching media index', loaded/total));
+        const itemsPlanned = entries.length;
+        const totalBytes = entries.reduce((s,i)=>s + (i.bytes||0),0);
+        let completedBytes = 0;
+        let itemsImported = 0;
+        const skippedMedia = [];
+        const startTime = performance.now();
+        async function worker(){
+          while(entries.length){
+            const item = entries.shift();
+            if(!item) continue;
+            const rel = item.path || item.path_display || item.name;
+            const expected = item.sha256 || item.content_hash || item.hash;
+            const fullPath = `${root}/media/${rel}`;
+            try{
+              const {blob} = await dbxDownloadVerified(fullPath, expected);
+              completedBytes += item.bytes || blob.size || 0;
+              itemsImported++;
+              setSyncStatus(`Restoring media ${itemsImported}/${itemsPlanned}`, completedBytes/Math.max(totalBytes,1));
+            }catch(err){
+              skippedMedia.push(fullPath);
+              handleSyncError(err);
+            }
+          }
         }
+        await Promise.all(Array.from({length:4}, ()=>worker()));
+        const elapsed = performance.now() - startTime;
+        console.log('Restore diagnostics',{timeMs:elapsed,totalBytes:completedBytes,items:itemsImported,conflicts:mediaHashMismatches.length,skippedMedia:skippedMedia.length});
+        if(skippedMedia.length){ console.warn('Skipped media files:', skippedMedia); }
       }
       if(opts.appState || opts.scenarios || opts.settings){
         await syncPull();
@@ -5605,7 +5699,7 @@ portalCtx.restore(); // end circular clip
     }catch(err){
       restoreSnapshot = null;
       console.error('Restore failed:', err);
-      setSyncStatus('Restore failed: ' + err.message);
+      handleSyncError(err);
     }
   }
   function undoRestore(){
@@ -5683,6 +5777,11 @@ portalCtx.restore(); // end circular clip
       const rev = state.sync.rev;
       const text = await file.text();
       const incoming = JSON.parse(text);
+      if(incoming?.appVersion && incoming.appVersion > APP_VERSION){
+        const err = new Error('Backup version too new');
+        err.code = 'VersionTooNew';
+        throw err;
+      }
 
       incoming.sync = incoming.sync || {};
       incoming.sync.rev = rev;
@@ -5732,9 +5831,9 @@ portalCtx.restore(); // end circular clip
       renderAll();
     }catch(err){
       console.error('Pull failed:', err);
-      setSyncStatus('Pull failed: ' + err.message);
+      handleSyncError(err);
       throw err;
-    } 
+    }
   }
 
   function base64urlEncode(buffer){
