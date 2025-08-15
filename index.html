@@ -1310,6 +1310,8 @@ button::-moz-focus-inner{
       appKey:'',
       accessToken:'',
       refreshToken:'',
+      dropboxAccountId:'',
+      dropboxRootPath:'/ShiftingClouds/DRScript',
       path:'/Apps/DR Script Builder/data.json',
       auto:false,
       intervalMins:5,
@@ -1358,7 +1360,10 @@ button::-moz-focus-inner{
   if(!state.projections) state.projections=[];
   if(!state.astralGoals) state.astralGoals=[];
   if(!state.astralTechniques) state.astralTechniques=[];
-  if(!state.sync) state.sync={provider:null, appKey:'', accessToken:'', path:'/Apps/DR Script Builder/data.json', auto:false, intervalMins:5, lastSync:0};
+  if(!state.sync) state.sync={provider:null, appKey:'', accessToken:'', refreshToken:'', dropboxAccountId:'', dropboxRootPath:'/ShiftingClouds/DRScript', path:'/Apps/DR Script Builder/data.json', auto:false, intervalMins:5, lastSync:0};
+  state.sync.dropboxAccountId ||= '';
+  state.sync.dropboxRootPath ||= '/ShiftingClouds/DRScript';
+  state.sync.refreshToken ||= '';
 
   // ===== Utils =====
   const qs = (q)=>document.querySelector(q);
@@ -1383,7 +1388,7 @@ button::-moz-focus-inner{
     }
     if(state.sync){
       try{
-        localStorage.setItem(syncKey, JSON.stringify({accessToken: state.sync.accessToken, refreshToken: state.sync.refreshToken, provider: state.sync.provider}));
+        localStorage.setItem(syncKey, JSON.stringify({accessToken: state.sync.accessToken, refreshToken: state.sync.refreshToken, provider: state.sync.provider, dropboxAccountId: state.sync.dropboxAccountId, dropboxRootPath: state.sync.dropboxRootPath}));
       }catch(err){
         if(err?.name==='QuotaExceededError'){
           quota=true;
@@ -4966,9 +4971,11 @@ portalCtx.restore(); // end circular clip
       }
       const data = await res.json();
       state.sync.accessToken = data.access_token;
+      state.sync.dropboxAccountId = data.account_id || state.sync.dropboxAccountId || '';
+      state.sync.dropboxRootPath = state.sync.dropboxRootPath || '/ShiftingClouds/DRScript';
       save();
       try{
-        localStorage.setItem(syncKey, JSON.stringify({accessToken: state.sync.accessToken, refreshToken: state.sync.refreshToken, provider: state.sync.provider}));
+        localStorage.setItem(syncKey, JSON.stringify({accessToken: state.sync.accessToken, refreshToken: state.sync.refreshToken, provider: state.sync.provider, dropboxAccountId: state.sync.dropboxAccountId, dropboxRootPath: state.sync.dropboxRootPath}));
       }catch{}
       return true;
     }catch(err){
@@ -5257,7 +5264,7 @@ portalCtx.restore(); // end circular clip
         }
       }
       try{
-        localStorage.setItem(syncKey, JSON.stringify({accessToken: state.sync.accessToken, refreshToken: state.sync.refreshToken, provider: state.sync.provider}));
+        localStorage.setItem(syncKey, JSON.stringify({accessToken: state.sync.accessToken, refreshToken: state.sync.refreshToken, provider: state.sync.provider, dropboxAccountId: state.sync.dropboxAccountId, dropboxRootPath: state.sync.dropboxRootPath}));
       }catch(err){
         if(err?.name==='QuotaExceededError'){
           quota=true;
@@ -5308,7 +5315,7 @@ portalCtx.restore(); // end circular clip
         }
       }
       try{
-        localStorage.setItem(syncKey, JSON.stringify({accessToken: state.sync.accessToken, refreshToken: state.sync.refreshToken, provider: state.sync.provider}));
+        localStorage.setItem(syncKey, JSON.stringify({accessToken: state.sync.accessToken, refreshToken: state.sync.refreshToken, provider: state.sync.provider, dropboxAccountId: state.sync.dropboxAccountId, dropboxRootPath: state.sync.dropboxRootPath}));
       }catch(err){
         if(err?.name==='QuotaExceededError'){
           quota=true;
@@ -5401,9 +5408,11 @@ portalCtx.restore(); // end circular clip
       state.sync.accessToken = data.access_token;
       state.sync.refreshToken = data.refresh_token;
       state.sync.provider = 'dropbox';
+      state.sync.dropboxAccountId = data.account_id || state.sync.dropboxAccountId || '';
+      state.sync.dropboxRootPath = state.sync.dropboxRootPath || '/ShiftingClouds/DRScript';
       save();
       try{
-        localStorage.setItem(syncKey, JSON.stringify({accessToken: state.sync.accessToken, refreshToken: state.sync.refreshToken, provider: state.sync.provider}));
+        localStorage.setItem(syncKey, JSON.stringify({accessToken: state.sync.accessToken, refreshToken: state.sync.refreshToken, provider: state.sync.provider, dropboxAccountId: state.sync.dropboxAccountId, dropboxRootPath: state.sync.dropboxRootPath}));
       }catch{}
       params.delete('code');
       params.delete('state');
