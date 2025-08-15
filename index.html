@@ -366,6 +366,11 @@ button::-moz-focus-inner{
         <small>Reality Shifting Companion</small>
       </div>
     </div>
+    <div style="display:flex; gap:6px; margin:10px 0">
+      <select id="librarySelect" class="text" style="flex:1"></select>
+      <button class="btn small" id="libraryAdd">＋</button>
+      <button class="btn small" id="libraryDelete">✕</button>
+    </div>
 
     <div class="nav-section">MAIN</div>
     <div class="nav">
@@ -1206,17 +1211,16 @@ button::-moz-focus-inner{
   let state = load();
   if(state && !localStorage.getItem(storeKey)) save();
   if(!state) state={
-    portals:[], 
-    waitingRooms:[], 
+    portals:[],
+    waitingRooms:[],
     journal:[],
     playlists:[],
-    scenarios:[],
-    collections:[],
+    libraries:[],
     images:[],
     videos:[],
     dreams:[],
-    lucidGoals:[], 
-    techniques:[], 
+    lucidGoals:[],
+    techniques:[],
     projections:[], 
     astralGoals:[], 
     astralTechniques:[], 
@@ -1232,10 +1236,30 @@ button::-moz-focus-inner{
     }
   };
   
+  function ensureLibraries(){
+    if(!state.libraries){
+      const libId=uid();
+      state.libraries=[{id:libId, name:'Main', scenarios:state.scenarios||[], collections:state.collections||[]}];
+    }
+    state.libraries.forEach(lib=>{
+      lib.scenarios ||= [];
+      lib.collections ||= [];
+      lib.scenarios.forEach(sc=>{ sc.category ??= []; sc.tags ??= []; sc.collectionId ??= null; });
+    });
+    delete state.scenarios;
+    delete state.collections;
+  }
   if(!state.playlists) state.playlists=[];
-  if(!state.scenarios) state.scenarios=[];
-  if(!state.collections) state.collections=[];
-  if(state.scenarios) state.scenarios.forEach(sc=>{ sc.category ??= []; sc.tags ??= []; sc.collectionId ??= null; });
+  ensureLibraries();
+  let activeLibraryId;
+  function initActiveLibrary(){
+    activeLibraryId=localStorage.getItem('activeLibraryId');
+    if(!activeLibraryId || !state.libraries.find(l=>l.id===activeLibraryId)){
+      activeLibraryId=state.libraries[0]?.id;
+      localStorage.setItem('activeLibraryId', activeLibraryId);
+    }
+  }
+  initActiveLibrary();
   if(!state.images) state.images=[];
   if(!state.videos) state.videos=[];
   if(!state.dreams) state.dreams=[];
@@ -1337,6 +1361,55 @@ button::-moz-focus-inner{
   document.addEventListener('focusin', (e) => {
     if(!e.target.closest('.modal.open')){
       lastFocusedElement = e.target;
+    }
+  });
+
+  function getActiveLibrary(){
+    return state.libraries.find(l=>l.id===activeLibraryId) || state.libraries[0];
+  }
+
+  function renderLibrarySelector(){
+    const sel = qs('#librarySelect');
+    if(!sel) return;
+    sel.innerHTML='';
+    state.libraries.forEach(lib=>{
+      const opt=document.createElement('option');
+      opt.value=lib.id;
+      opt.textContent=lib.name;
+      if(lib.id===activeLibraryId) opt.selected=true;
+      sel.appendChild(opt);
+    });
+  }
+
+  function setActiveLibrary(id){
+    activeLibraryId=id;
+    localStorage.setItem('activeLibraryId', id);
+    renderLibrarySelector();
+    renderCollections();
+    populateScenarioCollections();
+    renderScenarios();
+  }
+
+  renderLibrarySelector();
+  qs('#librarySelect')?.addEventListener('change', e=> setActiveLibrary(e.target.value));
+  qs('#libraryAdd')?.addEventListener('click', ()=>{
+    const name=prompt('Library name?');
+    if(!name) return;
+    const id=uid();
+    state.libraries.push({id, name:name.trim(), scenarios:[], collections:[]});
+    save();
+    setActiveLibrary(id);
+  });
+  qs('#libraryDelete')?.addEventListener('click', async ()=>{
+    if(state.libraries.length<=1) return;
+    if(await askConfirm('Delete this library?')){
+      const idx=state.libraries.findIndex(l=>l.id===activeLibraryId);
+      if(idx>-1){
+        state.libraries.splice(idx,1);
+        const newId=state.libraries[0]?.id;
+        save();
+        setActiveLibrary(newId);
+      }
     }
   });
 
@@ -2394,7 +2467,8 @@ portalCtx.restore(); // end circular clip
 
   function renderCollections(){
     collectionList.innerHTML='';
-    const cols=state.collections||[];
+    const lib=getActiveLibrary();
+    const cols=lib?.collections||[];
     if(!cols.length){
       collectionEmpty.style.display='grid';
       return;
@@ -2422,7 +2496,7 @@ portalCtx.restore(); // end circular clip
       up.textContent='↑';
       up.disabled=idx===0;
       up.onclick=()=>{
-        const arr=state.collections;
+        const arr=lib.collections;
         [arr[idx-1], arr[idx]]=[arr[idx], arr[idx-1]];
         save();
         renderCollections();
@@ -2433,7 +2507,7 @@ portalCtx.restore(); // end circular clip
       down.textContent='↓';
       down.disabled=idx===cols.length-1;
       down.onclick=()=>{
-        const arr=state.collections;
+        const arr=lib.collections;
         [arr[idx], arr[idx+1]]=[arr[idx+1], arr[idx]];
         save();
         renderCollections();
@@ -2445,8 +2519,8 @@ portalCtx.restore(); // end circular clip
       del.onclick=async()=>{
         if(await askConfirm('Delete this collection?')){
           const removedId=col.id;
-          state.collections.splice(idx,1);
-          (state.scenarios||[]).forEach(sc=>{ if(sc.collectionId===removedId) sc.collectionId=null; });
+          lib.collections.splice(idx,1);
+          (lib.scenarios||[]).forEach(sc=>{ if(sc.collectionId===removedId) sc.collectionId=null; });
           save();
           renderCollections();
           renderScenarios();
@@ -2462,8 +2536,9 @@ portalCtx.restore(); // end circular clip
   qs('#collectionCreate')?.addEventListener('click',()=>{
     const title=prompt('Collection name?');
     if(!title) return;
-    if(!state.collections) state.collections=[];
-    state.collections.push({id:uid(), title:title.trim()});
+    const lib=getActiveLibrary();
+    if(!lib.collections) lib.collections=[];
+    lib.collections.push({id:uid(), title:title.trim()});
     save();
     renderCollections();
     populateScenarioCollections();
@@ -2503,7 +2578,8 @@ portalCtx.restore(); // end circular clip
   function populateScenarioCollections(){
     if(!scenarioCollectionSel) return;
     scenarioCollectionSel.innerHTML='<option value="">Unassigned</option>';
-    (state.collections||[]).forEach(c=>{
+    const lib=getActiveLibrary();
+    (lib.collections||[]).forEach(c=>{
       const opt=document.createElement('option');
       opt.value=c.id;
       opt.textContent=c.title;
@@ -2512,8 +2588,9 @@ portalCtx.restore(); // end circular clip
   }
 
   function renderScenarios(){
+    const lib=getActiveLibrary();
     scenarioTagBar.innerHTML='';
-    const allTags=Array.from(new Set((state.scenarios||[]).flatMap(s=>s.tags||[]))).sort((a,b)=>a.localeCompare(b));
+    const allTags=Array.from(new Set((lib.scenarios||[]).flatMap(s=>s.tags||[]))).sort((a,b)=>a.localeCompare(b));
     allTags.forEach(t=>{
       const chip=document.createElement('span');
       chip.className='tag';
@@ -2529,7 +2606,7 @@ portalCtx.restore(); // end circular clip
     });
 
     scenarioList.innerHTML='';
-    let items=state.scenarios||[];
+    let items=lib.scenarios||[];
     if(activeScenarioTagFilters.size){
       items=items.filter(sc=>{
         const set=new Set(sc.tags||[]);
@@ -2542,7 +2619,7 @@ portalCtx.restore(); // end circular clip
       return;
     }
     scenarioEmpty.style.display='none';
-    const order=(state.collections||[]).map(c=>c.id);
+    const order=(lib.collections||[]).map(c=>c.id);
     items.sort((a,b)=>{
       const ia=order.indexOf(a.collectionId);
       const ib=order.indexOf(b.collectionId);
@@ -2554,7 +2631,7 @@ portalCtx.restore(); // end circular clip
       if(cid!==current){
         current=cid;
         const h=document.createElement('h3');
-        const col=state.collections.find(c=>c.id===cid);
+        const col=lib.collections.find(c=>c.id===cid);
         h.textContent=col?.title||'Unassigned';
         h.style.margin='16px 0 8px';
         scenarioList.appendChild(h);
@@ -2593,9 +2670,9 @@ portalCtx.restore(); // end circular clip
         ev.preventDefault();
         ev.stopPropagation();
         if(await askConfirm('Delete this scenario?')){
-          const i=(state.scenarios||[]).findIndex(x=>x.id===sc.id);
+          const i=(lib.scenarios||[]).findIndex(x=>x.id===sc.id);
           if(i>-1){
-            state.scenarios.splice(i,1);
+            lib.scenarios.splice(i,1);
             save();
             renderScenarios();
           }
@@ -2643,13 +2720,14 @@ portalCtx.restore(); // end circular clip
     const title=(scenarioTitle.value||'').trim();
     const desc=(scenarioDesc.value||'').trim();
     if(!title){ scenarioTitle.focus(); return; }
-    if(!state.scenarios) state.scenarios=[];
+    const lib=getActiveLibrary();
+    if(!lib.scenarios) lib.scenarios=[];
     const templateId=currentTemplateId;
     const prompt=scenarioTemplates.find(t=>t.id===templateId)?.prompt||'';
     const category=scCategoryMgr.getTags();
     const tags=scTagMgr.getTags();
     const collectionId=scenarioCollectionSel.value||null;
-    state.scenarios.push({id:uid(), title, desc, templateId, prompt, category, tags, collectionId});
+    lib.scenarios.push({id:uid(), title, desc, templateId, prompt, category, tags, collectionId});
     save();
     closeModal(scenarioModal);
     currentTemplateId=null;
@@ -4975,6 +5053,9 @@ portalCtx.restore(); // end circular clip
         const incoming = JSON.parse(r.result);
         if(!incoming || typeof incoming!=='object') throw new Error('Invalid JSON');
         state = incoming;
+        ensureLibraries();
+        initActiveLibrary();
+        renderLibrarySelector();
         cleanupStateMedia();
         save();
         renderAll();
