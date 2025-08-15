@@ -368,6 +368,8 @@ button::-moz-focus-inner{
 <div class="app" style="display:none">
   <div id="headerOverflow" class="header-overflow" style="position:absolute; top:16px; right:16px; z-index:10;">
     <button class="btn small" id="qaRestore">Sync From Dropbox</button>
+    <button class="btn small" id="viewConflictLog">Conflict Log</button>
+    <button class="btn small" id="undoRestore" style="display:none">Undo Restore</button>
   </div>
   <aside class="side">
     <div class="brand">
@@ -764,6 +766,19 @@ button::-moz-focus-inner{
       <label style="display:flex; gap:6px; align-items:center"><input type="checkbox" id="restoreSettings" checked/> Settings</label>
     </div>
     <div class="actions"><button class="btn ghost" id="restoreCancel">Cancel</button><button class="btn primary" id="restoreConfirm">Restore</button></div>
+</div>
+</div>
+
+<div class="modal" id="conflictLogModal" aria-hidden="true">
+  <div class="modal-card" style="max-width:600px">
+    <h3 style="margin:0 0 12px">Conflict Log</h3>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+      <select id="conflictTypeFilter"></select>
+      <input type="date" id="conflictStartDate"/>
+      <input type="date" id="conflictEndDate"/>
+    </div>
+    <pre id="conflictLogEntries" style="max-height:300px; overflow:auto; background:var(--surface); padding:8px;"></pre>
+    <div class="actions"><button class="btn ghost" id="conflictClose">Close</button></div>
   </div>
 </div>
 
@@ -1418,6 +1433,8 @@ button::-moz-focus-inner{
           videos/
   */
   let state = load();
+  let restoreSnapshot = null;
+  let conflictLogData = [];
   if(state && !localStorage.getItem(storeKey)) save();
   if(!state) state={
     portals:[],
@@ -5559,6 +5576,7 @@ portalCtx.restore(); // end circular clip
 
   async function startDropboxRestore(opts){
     try{
+      restoreSnapshot = JSON.stringify(state);
       setSyncStatus('Restoring from Dropbox...');
       const root = state.sync?.dropboxRootPath || BACKUP_ROOT_PATH;
       if(opts.media){
@@ -5576,13 +5594,79 @@ portalCtx.restore(); // end circular clip
           await dbxDownloadVerified(fullPath, expected);
         }
       }
+      if(opts.appState || opts.scenarios || opts.settings){
+        await syncPull();
+      }
       if(mediaHashMismatches.length){
         console.warn('Hash mismatches detected:', mediaHashMismatches);
       }
       setSyncStatus('Restore complete');
+      qs('#undoRestore')?.style.display='inline-block';
     }catch(err){
+      restoreSnapshot = null;
       console.error('Restore failed:', err);
       setSyncStatus('Restore failed: ' + err.message);
+    }
+  }
+  function undoRestore(){
+    if(!restoreSnapshot) return;
+    try{
+      state = JSON.parse(restoreSnapshot);
+      save();
+      renderAll();
+      restoreSnapshot = null;
+      qs('#undoRestore')?.style.display='none';
+      setSyncStatus('Restore undone');
+    }catch(err){
+      console.error('Undo restore failed', err);
+      alert('Undo restore failed: '+(err?.message||err));
+    }
+  }
+
+  function parseConflictLine(line){
+    const m = line.match(/^(\S+)\s+(\w+):([^\s]+)\s+->\s+(.+)$/);
+    if(!m) return null;
+    return { timestamp: m[1], type: m[2], id: m[3], file: m[4], date: new Date(m[1]) };
+  }
+
+  async function openConflictLog(){
+    try{
+      const res = await fetch('data/merge.log');
+      const text = await res.text();
+      conflictLogData = text.trim().split('\n').map(parseConflictLine).filter(Boolean);
+      const sel = qs('#conflictTypeFilter');
+      if(sel){
+        const types = Array.from(new Set(conflictLogData.map(e=>e.type)));
+        sel.innerHTML = '<option value="all">All Types</option>' + types.map(t=>`<option value="${t}">${t}</option>`).join('');
+      }
+      applyConflictFilters();
+      const modal = qs('#conflictLogModal');
+      modal?.classList.add('open');
+      modal?.setAttribute('aria-hidden','false');
+    }catch(err){
+      console.error('Failed to load conflict log', err);
+      alert('Failed to load conflict log');
+    }
+  }
+
+  function applyConflictFilters(){
+    let entries = conflictLogData;
+    const type = qs('#conflictTypeFilter')?.value || 'all';
+    const start = qs('#conflictStartDate')?.value;
+    const end = qs('#conflictEndDate')?.value;
+    if(type !== 'all') entries = entries.filter(e=>e.type===type);
+    if(start){
+      const sd = new Date(start);
+      entries = entries.filter(e=>e.date >= sd);
+    }
+    if(end){
+      const ed = new Date(end);
+      ed.setDate(ed.getDate()+1);
+      entries = entries.filter(e=>e.date < ed);
+    }
+    const pre = qs('#conflictLogEntries');
+    if(pre){
+      pre.textContent = entries.map(e=>`${e.timestamp} ${e.type}:${e.id} -> ${e.file}`).join('\n') || 'No conflicts found';
     }
   }
 
@@ -5822,8 +5906,14 @@ portalCtx.restore(); // end circular clip
     };
     qs('#restoreFromDropbox')?.addEventListener('click', restoreHandler);
     qs('#qaRestore')?.addEventListener('click', restoreHandler);
-    qs('#testConnection')?.addEventListener('click', ()=>{ 
-      testDropboxConnection(); 
+    qs('#viewConflictLog')?.addEventListener('click', openConflictLog);
+    qs('#conflictClose')?.addEventListener('click', ()=>{ closeModal(qs('#conflictLogModal')); });
+    ['conflictTypeFilter','conflictStartDate','conflictEndDate'].forEach(id=>{
+      qs('#'+id)?.addEventListener('change', applyConflictFilters);
+    });
+    qs('#undoRestore')?.addEventListener('click', undoRestore);
+    qs('#testConnection')?.addEventListener('click', ()=>{
+      testDropboxConnection();
     });
   }
   

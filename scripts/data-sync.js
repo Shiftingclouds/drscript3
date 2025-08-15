@@ -116,7 +116,9 @@ function merge(newData) {
   writeJson(COLLECTIONS, mergedCollections);
   writeJson(MEDIA_INDEX, mergedMedia);
   if (conflicts.length) {
-    fs.appendFileSync(LOG_FILE, conflicts.join('\n') + '\n');
+    const logTime = new Date().toISOString();
+    const lines = conflicts.map(c => `${logTime} ${c}`);
+    fs.appendFileSync(LOG_FILE, lines.join('\n') + '\n');
   }
   rebuildIndices();
 }
