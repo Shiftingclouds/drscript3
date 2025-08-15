@@ -213,14 +213,14 @@
   transform:translate(-50%,-50%);
   z-index:1000;
   padding:14px 32px;
-  border:2px solid var(--accent);
+  border:2px solid #1e3a8a;
   border-radius:999px;
   background:transparent;
   color:#fff;
   font-size:16px;
   font-weight:600;
   cursor:pointer;
-  box-shadow:0 0 12px rgba(124,108,255,.4);
+  box-shadow:0 0 12px rgba(30,58,138,.4);
   transition:background .3s, transform .2s, box-shadow .3s;
   touch-action:manipulation;
 }
@@ -235,21 +235,21 @@
 #enterApp:hover,
 #enterApp:focus{
   animation:enterPulse 1.2s ease-in-out alternate infinite;
-  box-shadow:0 0 16px rgba(124,108,255,.6);
+  box-shadow:0 0 16px rgba(30,58,138,.6);
 }
 #enterApp:hover .enter-label,
 #enterApp:focus .enter-label{
-  text-shadow:0 0 8px var(--accent);
+  text-shadow:0 0 8px #1e3a8a;
 }
 
 #enterApp:active{
   transform:translate(-50%,-50%) scale(.97);
-  box-shadow:0 0 10px rgba(124,108,255,.5);
+  box-shadow:0 0 10px rgba(30,58,138,.5);
 }
 
 @keyframes enterPulse{
-  from{ transform:translate(-50%,-50%) scale(1);   box-shadow:0 0 12px rgba(124,108,255,.4); }
-  to  { transform:translate(-50%,-50%) scale(1.05); box-shadow:0 0 18px rgba(124,108,255,.6); }
+  from{ transform:translate(-50%,-50%) scale(1);   box-shadow:0 0 12px rgba(30,58,138,.4); }
+  to  { transform:translate(-50%,-50%) scale(1.05); box-shadow:0 0 18px rgba(30,58,138,.6); }
 }
 
 </style>
