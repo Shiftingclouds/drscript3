@@ -1049,6 +1049,7 @@
 <script>
   // ===== State =====
   const storeKey='drsb-data-v2';
+  const syncKey='drsb-sync';
   let state = load();
   if(state && !localStorage.getItem(storeKey)) save();
   if(!state) state={
@@ -1088,8 +1089,31 @@
 
   // ===== Utils =====
   const qs = (q)=>document.querySelector(q);
-  function save(){ 
-    localStorage.setItem(storeKey, JSON.stringify(state)); 
+  function save(){
+    let quota=false;
+    try{
+      localStorage.setItem(storeKey, JSON.stringify(state));
+    }catch(err){
+      if(err?.name==='QuotaExceededError'){
+        quota=true;
+        console.warn('Storage quota exceeded, state not fully saved');
+      }else{
+        console.error('Save failed', err);
+      }
+    }
+    if(state.sync){
+      try{
+        localStorage.setItem(syncKey, JSON.stringify({accessToken: state.sync.accessToken, provider: state.sync.provider}));
+      }catch(err){
+        if(err?.name==='QuotaExceededError'){
+          quota=true;
+          console.warn('Storage quota exceeded, sync token not saved');
+        }
+      }
+    }
+    if(quota){
+      setSyncStatus('Warning: storage full - data may not be saved');
+    }
     // Auto-sync to Dropbox if connected
     if(state.sync?.accessToken && state.sync?.auto) {
       setTimeout(() => {
@@ -1098,15 +1122,26 @@
     }
   }
   function load(){
+    let data=null;
     const v2 = localStorage.getItem(storeKey);
     if (v2) {
-      try { return JSON.parse(v2); } catch { return null; }
+      try { data = JSON.parse(v2); } catch { data = null; }
     }
-    const legacy = localStorage.getItem('drsb-data');
-    if (legacy) {
-      try { return JSON.parse(legacy); } catch { return null; }
+    if(!data){
+      const legacy = localStorage.getItem('drsb-data');
+      if (legacy) {
+        try { data = JSON.parse(legacy); } catch { data = null; }
+      }
     }
-    return null;
+    const syncRaw = localStorage.getItem(syncKey);
+    if(syncRaw){
+      try{
+        const syncData = JSON.parse(syncRaw);
+        data = data || {};
+        data.sync = { ...(data.sync||{}), ...syncData };
+      }catch{}
+    }
+    return data;
   }
   function uid(){ return Math.random().toString(36).slice(2)+Date.now().toString(36); }
   function toLocalInput(iso){ try{ const d=new Date(iso); const pad=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }catch{ return ''; } }
@@ -3876,16 +3911,33 @@ portalCtx.restore(); // end circular clip
       }
       
       const json = JSON.stringify(lightState); 
-      const blob = new Blob([json], {type:'application/json'}); 
-      const path = (state.sync?.path) || '/Apps/DR Script Builder/data.json'; 
-      
-      await dbxUpload(path, blob); 
-      state.sync.lastSync = Date.now(); 
-      localStorage.setItem(storeKey, JSON.stringify(state));
-      if(!silent) setSyncStatus('Pushed at ' + new Date(state.sync.lastSync).toLocaleString()); 
-    }catch(err){ 
-      console.error('Push failed:', err); 
-      if(!silent) setSyncStatus('Push failed: ' + err.message); 
+      const blob = new Blob([json], {type:'application/json'});
+      const path = (state.sync?.path) || '/Apps/DR Script Builder/data.json';
+
+      await dbxUpload(path, blob);
+      state.sync.lastSync = Date.now();
+      let quota=false;
+      try{
+        localStorage.setItem(storeKey, JSON.stringify(state));
+      }catch(err){
+        if(err?.name==='QuotaExceededError'){
+          quota=true;
+          console.warn('Storage quota exceeded, state not fully saved');
+        }
+      }
+      try{
+        localStorage.setItem(syncKey, JSON.stringify({accessToken: state.sync.accessToken, provider: state.sync.provider}));
+      }catch(err){
+        if(err?.name==='QuotaExceededError'){
+          quota=true;
+          console.warn('Storage quota exceeded, sync token not saved');
+        }
+      }
+      if(quota){ setSyncStatus('Warning: storage full - data may not be saved'); }
+      if(!silent) setSyncStatus('Pushed at ' + new Date(state.sync.lastSync).toLocaleString());
+    }catch(err){
+      console.error('Push failed:', err);
+      if(!silent) setSyncStatus('Push failed: ' + err.message);
       throw err;
     } 
   }
@@ -3918,14 +3970,31 @@ portalCtx.restore(); // end circular clip
 }));
 
       }
-      
-      state = incoming; 
-      localStorage.setItem(storeKey, JSON.stringify(state));
-      setSyncStatus('Pulled at ' + new Date().toLocaleString()); 
-      renderAll(); 
-    }catch(err){ 
-      console.error('Pull failed:', err); 
-      setSyncStatus('Pull failed: ' + err.message); 
+
+      state = incoming;
+      let quota=false;
+      try{
+        localStorage.setItem(storeKey, JSON.stringify(state));
+      }catch(err){
+        if(err?.name==='QuotaExceededError'){
+          quota=true;
+          console.warn('Storage quota exceeded, state not fully saved');
+        }
+      }
+      try{
+        localStorage.setItem(syncKey, JSON.stringify({accessToken: state.sync.accessToken, provider: state.sync.provider}));
+      }catch(err){
+        if(err?.name==='QuotaExceededError'){
+          quota=true;
+          console.warn('Storage quota exceeded, sync token not saved');
+        }
+      }
+      if(quota){ setSyncStatus('Warning: storage full - data may not be saved'); }
+      setSyncStatus('Pulled at ' + new Date().toLocaleString());
+      renderAll();
+    }catch(err){
+      console.error('Pull failed:', err);
+      setSyncStatus('Pull failed: ' + err.message);
       throw err;
     } 
   }
