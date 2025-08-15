@@ -4145,6 +4145,8 @@ portalCtx.restore(); // end circular clip
   window.addEventListener('load', () => {
     initStarfield();
     requestAnimationFrame(drawStarfield);
+    sizePortalCanvas();
+    renderPortalScene();
   });
   // Delay heavy initialization until the user enters the app
   qs('#enterApp').addEventListener('click', () => {
