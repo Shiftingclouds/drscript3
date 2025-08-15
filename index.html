@@ -290,8 +290,8 @@
   font-size:16px;
   font-weight:600;
   cursor:pointer;
-  box-shadow:0 0 12px rgba(30,58,138,.4);
-  transition:background .3s, transform .2s, box-shadow .3s;
+  box-shadow:none;
+  transition:background .3s, transform .2s;
   touch-action:manipulation;
 }
 
@@ -299,13 +299,23 @@
   padding:6px 16px;
   border-radius:6px;
   display:inline-block;
-  background:none;
+  background:transparent;
+  box-shadow:none;
+}
+
+#enterApp::before,
+#enterApp::after,
+button::-moz-focus-inner{
+  background:transparent;
+  box-shadow:none;
+  border:0;
+  padding:0;
 }
 
 #enterApp:hover,
 #enterApp:focus{
   animation:enterPulse 1.2s ease-in-out alternate infinite;
-  box-shadow:0 0 16px rgba(30,58,138,.6);
+  box-shadow:none;
 }
 #enterApp:hover .enter-label,
 #enterApp:focus .enter-label{
@@ -314,7 +324,7 @@
 
 #enterApp:active{
   transform:translate(-50%,-50%) scale(.97);
-  box-shadow:0 0 10px rgba(30,58,138,.5);
+  box-shadow:none;
 }
 
 @keyframes pulse{
@@ -1770,13 +1780,13 @@ portalCtx.restore(); // end circular clip
       } else { 
         circle.textContent=p.name?.slice(0,10)||'Portal'; 
       }
-      circle.title='Click to edit portal';
-      circle.onclick=()=>openEditPortal(idx);
+      circle.title='View portal summary';
+      circle.onclick=()=>showPortalSummary(ensurePortalShape(state.portals[idx]));
       const name=document.createElement('div'); 
       name.className='portal-name'; 
       name.textContent=p.name||'Portal';
       name.style.cursor='pointer';
-      name.onclick=()=>openEditPortal(idx);
+      name.onclick=()=>showPortalSummary(ensurePortalShape(state.portals[idx]));
       const actions=document.createElement('div'); 
       actions.className='portal-actions';
       const edit=document.createElement('button'); 
