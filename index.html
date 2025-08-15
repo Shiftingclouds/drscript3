@@ -65,6 +65,9 @@
   .page-visualizers::before{
     background:radial-gradient(circle at 100% 0%, var(--aurora-4), transparent 60%), radial-gradient(circle at 0% 100%, var(--aurora-2), transparent 60%);
   }
+  .page-scenarios::before{
+    background:radial-gradient(circle at 0% 0%, var(--aurora-2), transparent 60%), radial-gradient(circle at 100% 100%, var(--aurora-3), transparent 60%);
+  }
   .page-waiting::before{
     background:radial-gradient(circle at 50% 0%, var(--aurora-1), transparent 60%), radial-gradient(circle at 50% 100%, var(--aurora-3), transparent 60%);
   }
@@ -143,6 +146,9 @@
   .tag{padding:6px 10px; border:1px solid var(--border); border-radius:999px; cursor:pointer; font-size:12px; background:var(--bg-1)}
   .tag.active{outline:2px solid var(--aurora-2)}
   .journal-list{display:grid; gap:12px; margin-top:10px}
+  .scenario-list{display:grid; gap:12px; margin-top:10px}
+  .scenario-card{background:var(--bg-1); border:1px solid var(--border); border-radius:14px; padding:14px; display:grid; gap:6px}
+  .scenario-actions{display:flex; gap:6px; justify-content:flex-end}
   .entry{background:var(--bg-1); border:1px solid var(--border); border-radius:14px; padding:14px}
   .entry h4{margin:0 0 6px}
   .entry .meta{color:var(--faint); font-size:12px; display:flex; gap:10px; align-items:center}
@@ -361,6 +367,7 @@ button::-moz-focus-inner{
       <button data-view="journal">📖 <span>Journal</span></button>
       <button data-view="playlists">🎵 <span>Playlists</span></button>
       <button data-view="visualizers">🖼️ <span>Visualizers</span></button>
+      <button data-view="scenarios">📝 <span>Scenarios</span></button>
     </div>
 
     <div class="nav-section">SPECIAL</div>
@@ -427,6 +434,14 @@ button::-moz-focus-inner{
       <div id="vizTagBar" class="tagbar"></div>
       <div id="vizContainer"></div>
       <div id="vizEmpty" class="empty" style="display:none">No media found</div>
+    </section>
+
+    <!-- Scenarios View -->
+    <section id="scenarios-view" class="view page page-scenarios" hidden>
+      <h2 class="title">Scenarios</h2>
+      <div class="toolbar"><button class="btn primary" id="scenarioCreate">＋ New Scenario</button></div>
+      <div id="scenarioList" class="scenario-list"></div>
+      <div id="scenarioEmpty" class="empty" style="display:none">No scenarios yet</div>
     </section>
 
     <!-- Waiting Rooms -->
@@ -798,6 +813,15 @@ button::-moz-focus-inner{
       </div>
     </div>
     <div class="actions"><button class="btn ghost" id="plCancel">Cancel</button><button class="btn primary" id="plSave">Save Playlist</button></div>
+</div>
+</div>
+
+<div class="modal" id="scenarioModal" aria-hidden="true">
+  <div class="modal-card" style="width:min(560px,95vw)">
+    <h3 style="margin:0 0 10px">New Scenario</h3>
+    <div class="field"><label class="label">Title</label><input id="scenarioTitle" class="text"/></div>
+    <div class="field"><label class="label">Description</label><textarea id="scenarioDesc" class="textarea"></textarea></div>
+    <div class="actions"><button class="btn ghost" id="scenarioCancel">Cancel</button><button class="btn primary" id="scenarioSave">Save</button></div>
   </div>
 </div>
 
@@ -1156,8 +1180,9 @@ button::-moz-focus-inner{
   if(!state) state={
     portals:[], 
     waitingRooms:[], 
-    journal:[], 
+    journal:[],
     playlists:[],
+    scenarios:[],
     images:[],
     videos:[],
     dreams:[],
@@ -1179,6 +1204,7 @@ button::-moz-focus-inner{
   };
   
   if(!state.playlists) state.playlists=[];
+  if(!state.scenarios) state.scenarios=[];
   if(!state.images) state.images=[];
   if(!state.videos) state.videos=[];
   if(!state.dreams) state.dreams=[];
@@ -1286,10 +1312,11 @@ button::-moz-focus-inner{
   // ===== Navigation =====
   const views={
     portals:qs('#portals-view'),
-    journal:qs('#journal-view'), 
-    playlists:qs('#playlists-view'), 
-    waiting:qs('#waiting-view'), 
-    visualizers:qs('#visualizers-view'), 
+    journal:qs('#journal-view'),
+    playlists:qs('#playlists-view'),
+    visualizers:qs('#visualizers-view'),
+    scenarios:qs('#scenarios-view'),
+    waiting:qs('#waiting-view'),
     settings:qs('#settings-view'),
     lucid:qs('#lucid-view'),
     astral:qs('#astral-view')
@@ -1308,6 +1335,7 @@ button::-moz-focus-inner{
       if(view==='waiting') renderWR();
       if(view==='playlists') renderPlaylists();
       if(view==='visualizers') renderVisualizers();
+      if(view==='scenarios') renderScenarios();
       if(view==='lucid') renderLucidDreaming();
       if(view==='astral') renderAstralProjection();
     });
@@ -2309,23 +2337,89 @@ portalCtx.restore(); // end circular clip
   
   qs('#plCancel').onclick=()=>{ closeModal(plModal); };
   qs('#plSave').onclick=()=>{
-    const data={ 
-      id: plEditingId||uid(), 
-      name:(plName.value||'').trim()||'Playlist', 
-      cover: plCoverPrev.dataset.src||'', 
-      portalIndex: parseInt(plPortalSel.value||'-1',10), 
-      tracks:[...plWorkingTracks] 
+    const data={
+      id: plEditingId||uid(),
+      name:(plName.value||'').trim()||'Playlist',
+      cover: plCoverPrev.dataset.src||'',
+      portalIndex: parseInt(plPortalSel.value||'-1',10),
+      tracks:[...plWorkingTracks]
     };
     const idx=(state.playlists||[]).findIndex(x=>x.id===data.id);
-    if(idx>-1) state.playlists[idx]=data; 
+    if(idx>-1) state.playlists[idx]=data;
     else state.playlists.push(data);
-    save(); 
+    save();
     closeModal(plModal);
     renderPlaylists();
   };
 
   plSearch?.addEventListener('input', ()=> renderPlaylists());
   plPortalFilter?.addEventListener('change', ()=> renderPlaylists());
+
+  // ===== Scenarios =====
+  const scenarioList=qs('#scenarioList');
+  const scenarioEmpty=qs('#scenarioEmpty');
+  const scenarioModal=qs('#scenarioModal');
+  const scenarioTitle=qs('#scenarioTitle');
+  const scenarioDesc=qs('#scenarioDesc');
+
+  function renderScenarios(){
+    scenarioList.innerHTML='';
+    const items=state.scenarios||[];
+    if(items.length===0){
+      scenarioEmpty.style.display='grid';
+      return;
+    }
+    scenarioEmpty.style.display='none';
+    items.forEach(sc=>{
+      const card=document.createElement('div');
+      card.className='scenario-card';
+      const h4=document.createElement('h4');
+      h4.textContent=sc.title||'Untitled';
+      const p=document.createElement('p');
+      p.textContent=sc.desc||'';
+      p.style.margin='0';
+      p.style.color='var(--muted)';
+      const actions=document.createElement('div');
+      actions.className='scenario-actions';
+      const del=document.createElement('button');
+      del.className='btn small';
+      del.textContent='Delete';
+      del.onclick=async (ev)=>{
+        ev.preventDefault();
+        ev.stopPropagation();
+        if(await askConfirm('Delete this scenario?')){
+          const i=(state.scenarios||[]).findIndex(x=>x.id===sc.id);
+          if(i>-1){
+            state.scenarios.splice(i,1);
+            save();
+            renderScenarios();
+          }
+        }
+      };
+      actions.appendChild(del);
+      card.append(h4,p,actions);
+      scenarioList.appendChild(card);
+    });
+  }
+
+  qs('#scenarioCreate')?.addEventListener('click',()=>{
+    scenarioTitle.value='';
+    scenarioDesc.value='';
+    scenarioModal.classList.add('open');
+    scenarioTitle.focus();
+  });
+
+  qs('#scenarioCancel')?.addEventListener('click',()=>closeModal(scenarioModal));
+  qs('#scenarioSave')?.addEventListener('click',()=>{
+    const title=(scenarioTitle.value||'').trim();
+    const desc=(scenarioDesc.value||'').trim();
+    if(!title){ scenarioTitle.focus(); return; }
+    if(!state.scenarios) state.scenarios=[];
+    state.scenarios.push({id:uid(), title, desc});
+    save();
+    closeModal(scenarioModal);
+    renderScenarios();
+  });
 
   // RTE shared (image insert)
   document.addEventListener('click',(e)=>{
@@ -4656,12 +4750,13 @@ portalCtx.restore(); // end circular clip
   function renderAll(){ 
     renderPortals(); 
     renderJournal(); 
-    renderWR(); 
-    renderPlaylists(); 
+    renderWR();
+    renderPlaylists();
     renderVisualizers();
-    if(views.settings && !views.settings.hidden){ 
-      renderSettings(); 
-    } 
+    renderScenarios();
+    if(views.settings && !views.settings.hidden){
+      renderSettings();
+    }
     if(views.lucid && !views.lucid.hidden){ 
       renderLucidDreaming(); 
     } 
