@@ -3913,7 +3913,7 @@ portalCtx.restore(); // end circular clip
     return response;
   }
 
-  async function dropboxContentApiCall(endpoint, content, filename) {
+  async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwrite') {
     if(!state.sync?.accessToken) {
       throw new Error('No access token available');
     }
@@ -3924,7 +3924,7 @@ portalCtx.restore(); // end circular clip
       'Content-Type': 'application/octet-stream',
       'Dropbox-API-Arg': JSON.stringify({
         path: filename,
-        mode: 'overwrite'
+        mode
       })
     };
 
@@ -3951,10 +3951,14 @@ portalCtx.restore(); // end circular clip
         state.sync.accessToken = '';
         state.sync.refreshToken = '';
         save();
-        throw new Error('Access token expired or invalid');
+        const err401 = new Error('Access token expired or invalid');
+        err401.status = 401;
+        throw err401;
       }
 
-      throw new Error(`Dropbox API error: ${response.status} - ${errorText}`);
+      const error = new Error(`Dropbox API error: ${response.status} - ${errorText}`);
+      error.status = response.status;
+      throw error;
     }
 
     return response;
@@ -3967,9 +3971,12 @@ portalCtx.restore(); // end circular clip
     console.log('Sync status:', msg, progress);
   }
   
-  async function dbxUpload(path, blob){
+  async function dbxUpload(path, blob, rev){
     try {
-      await dropboxContentApiCall('files/upload', blob, path);
+      const mode = rev ? { '.tag': 'update', update: rev } : 'overwrite';
+      const response = await dropboxContentApiCall('files/upload', blob, path, mode);
+      const metadata = await response.json();
+      state.sync.rev = metadata.rev;
       return { success: true };
     } catch(err) {
       console.error('Upload failed:', err);
@@ -3978,7 +3985,7 @@ portalCtx.restore(); // end circular clip
     }
   }
 
-  async function dbxUploadChunked(blob, path){
+  async function dbxUploadChunked(blob, path, rev){
     if(!state.sync?.accessToken) {
       throw new Error('No access token available');
     }
@@ -4002,7 +4009,9 @@ portalCtx.restore(); // end circular clip
       }
       if(!res.ok){
         const t = await res.text();
-        throw new Error(`Dropbox chunk start failed: ${res.status} - ${t}`);
+        const error = new Error(`Dropbox chunk start failed: ${res.status} - ${t}`);
+        error.status = res.status;
+        throw error;
       }
       const data = await res.json();
       sessionId = data.session_id;
@@ -4016,7 +4025,7 @@ portalCtx.restore(); // end circular clip
           ? 'https://content.dropboxapi.com/2/files/upload_session/finish'
           : 'https://content.dropboxapi.com/2/files/upload_session/append_v2';
         const apiArg = isLast
-          ? {cursor:{session_id:sessionId, offset}, commit:{path, mode:'overwrite'}}
+          ? {cursor:{session_id:sessionId, offset}, commit:{path, mode: rev ? { '.tag':'update', update: rev } : 'overwrite'}}
           : {cursor:{session_id:sessionId, offset}, close:false};
         headers = {
           'Authorization': `Bearer ${state.sync.accessToken}`,
@@ -4030,10 +4039,16 @@ portalCtx.restore(); // end circular clip
         }
         if(!res.ok){
           const t = await res.text();
-          throw new Error(`Dropbox chunk ${isLast?'finish':'append'} failed: ${res.status} - ${t}`);
+          const error = new Error(`Dropbox chunk ${isLast?'finish':'append'} failed: ${res.status} - ${t}`);
+          error.status = res.status;
+          throw error;
         }
         offset += chunk.size;
         setSyncStatus(`Uploading ${path}`, offset/totalSize);
+        if(isLast){
+          const metadata = await res.json();
+          state.sync.rev = metadata.rev;
+        }
       }
       return {success:true};
     }catch(err){
@@ -4075,10 +4090,26 @@ portalCtx.restore(); // end circular clip
         state.sync.accessToken = '';
         state.sync.refreshToken = '';
         save();
-        throw new Error('Access token expired or invalid');
+        const err401 = new Error('Access token expired or invalid');
+        err401.status = 401;
+        throw err401;
       }
 
-      throw new Error(`Download failed: ${response.status} - ${errorText}`);
+      const err = new Error(`Download failed: ${response.status} - ${errorText}`);
+      err.status = response.status;
+      throw err;
+    }
+
+    if(path === (state.sync?.path || '/Apps/DR Script Builder/data.json')){
+      const meta = response.headers.get('Dropbox-API-Result');
+      if(meta){
+        try{
+          const metadata = JSON.parse(meta);
+          state.sync.rev = metadata.rev;
+        }catch(e){
+          console.warn('Failed to parse Dropbox-API-Result', e);
+        }
+      }
     }
 
     return response.blob();
@@ -4099,13 +4130,13 @@ portalCtx.restore(); // end circular clip
       const THRESHOLD = 150 * 1024 * 1024;
       try{
         if(blob.size > THRESHOLD){
-          await dbxUploadChunked(blob, path);
+          await dbxUploadChunked(blob, path, state.sync.rev);
         }else{
-          await dbxUpload(path, blob);
+          await dbxUpload(path, blob, state.sync.rev);
         }
       }catch(err){
         console.warn('Standard upload failed, retrying chunked', err);
-        await dbxUploadChunked(blob, path);
+        await dbxUploadChunked(blob, path, state.sync.rev);
       }
       state.sync.lastSync = Date.now();
       let quota=false;
@@ -4129,9 +4160,16 @@ portalCtx.restore(); // end circular clip
       if(!silent) setSyncStatus('Pushed at ' + new Date(state.sync.lastSync).toLocaleString());
     }catch(err){
       console.error('Push failed:', err);
+      if(err.status === 409){
+        alert('Sync conflict detected. The Dropbox file has been modified elsewhere.');
+        if(confirm('Pull the latest version and overwrite local data?')){
+          try{ await syncPull(); }
+          catch(e){ console.error('Auto-pull after conflict failed', e); }
+        }
+      }
       if(!silent) setSyncStatus('Push failed: ' + err.message);
       throw err;
-    } 
+    }
   }
   
   async function syncPull(){ 
@@ -4142,11 +4180,14 @@ portalCtx.restore(); // end circular clip
         throw new Error('No access token - please connect Dropbox first');
       }
       
-      const path = (state.sync?.path) || '/Apps/DR Script Builder/data.json'; 
-      const file = await dbxDownload(path); 
-      const text = await file.text(); 
+      const path = (state.sync?.path) || '/Apps/DR Script Builder/data.json';
+      const file = await dbxDownload(path);
+      const rev = state.sync.rev;
+      const text = await file.text();
       const incoming = JSON.parse(text);
 
+      incoming.sync = incoming.sync || {};
+      incoming.sync.rev = rev;
       state = incoming;
       cleanupStateMedia();
       let quota=false;
