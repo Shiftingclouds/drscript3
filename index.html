@@ -1325,6 +1325,83 @@ button::-moz-focus-inner{
   const CHARACTERS_FILE = 'characters.json';
   const LOCATIONS_FILE = 'locations.json';
   const MEDIA_INDEX_FILE = 'media_index.json';
+
+  const DB_NAME = 'drscript';
+  const DB_VERSION = 1;
+
+  function openAppDB(){
+    return new Promise((resolve,reject)=>{
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = e => {
+        const db = e.target.result;
+        ['scenarios','characters','locations','settings','media','syncMeta'].forEach(store => {
+          if(!db.objectStoreNames.contains(store)){
+            if(store==='settings' || store==='syncMeta'){
+              db.createObjectStore(store,{keyPath:'key'});
+            }else{
+              db.createObjectStore(store,{keyPath:'id'});
+            }
+          }
+        });
+      };
+      req.onsuccess = e => resolve(e.target.result);
+      req.onerror = e => reject(e.target.error);
+    });
+  }
+
+  function idbRequest(req){
+    return new Promise((res,rej)=>{
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => rej(req.error);
+    });
+  }
+
+  async function hashJson(obj){
+    const data = new TextEncoder().encode(JSON.stringify(obj||{}));
+    const buf = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+
+  async function saveToIndexedDB(data, meta){
+    const db = await openAppDB();
+    const stores=['scenarios','characters','locations','settings','media','syncMeta'];
+    const tx = db.transaction(stores,'readwrite');
+    const writeArr = (name, items) => {
+      const store = tx.objectStore(name);
+      store.clear();
+      (items||[]).forEach(item=>store.put(item));
+    };
+    writeArr('scenarios', data.scenarios);
+    writeArr('characters', data.characters);
+    writeArr('locations', data.locations);
+    const sStore = tx.objectStore('settings');
+    sStore.clear();
+    Object.entries(data.settings||{}).forEach(([key,value])=>sStore.put({key,value}));
+    writeArr('media', data.media);
+    tx.objectStore('syncMeta').put({...meta, key:'meta'});
+    tx.commit && tx.commit();
+    await new Promise((res,rej)=>{tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);});
+  }
+
+  async function refreshInMemoryStores(){
+    const db = await openAppDB();
+    const tx = db.transaction(['scenarios','characters','locations','settings','media'],'readonly');
+    const getAll = store => idbRequest(store.getAll());
+    state.scenarios = await getAll(tx.objectStore('scenarios'));
+    state.characters = await getAll(tx.objectStore('characters'));
+    state.locations = await getAll(tx.objectStore('locations'));
+    const settingsArr = await getAll(tx.objectStore('settings'));
+    state.settings = {};
+    settingsArr.forEach(({key,value})=>state.settings[key]=value);
+    state.media = await getAll(tx.objectStore('media'));
+  }
+
+  function recomputeDerivedFields(){
+    ensureLibraries();
+  }
+
+  function rebuildCaches(){ /* placeholder for tag/timeline caches */ }
+  function reconnectAudioBindings(){ /* placeholder for audio bindings */ }
   /*
     Each JSON backup file should include a top-level `schema_version`
     field for migration support.
@@ -5526,7 +5603,29 @@ portalCtx.restore(); // end circular clip
       incoming.sync = incoming.sync || {};
       incoming.sync.rev = rev;
       state = incoming;
+
+      const now = new Date().toISOString();
+      const hashes = {
+        scenarios: await hashJson(state.scenarios),
+        characters: await hashJson(state.characters),
+        locations: await hashJson(state.locations),
+        settings: await hashJson(state.settings),
+        media: await hashJson(state.media)
+      };
+      await saveToIndexedDB({
+        scenarios: state.scenarios || [],
+        characters: state.characters || [],
+        locations: state.locations || [],
+        settings: state.settings || {},
+        media: state.media || []
+      }, {lastPullFromDropboxAt: now, sourcePath: path, hashes});
+      await refreshInMemoryStores();
+      recomputeDerivedFields();
+      rebuildCaches();
+      reconnectAudioBindings();
       cleanupStateMedia();
+      state.sync = state.sync || {};
+      state.sync.syncMeta = { lastPullFromDropboxAt: now, sourcePath: path, hashes };
       let quota=false;
       try{
         localStorage.setItem(storeKey, JSON.stringify(state));
