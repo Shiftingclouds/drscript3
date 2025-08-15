@@ -27,6 +27,19 @@ body {
   transition: color 200ms, background-color 200ms, border-color 200ms;
 }
 
+* {
+  scrollbar-color: var(--aurora-2) var(--bg-0);
+}
+
+::-webkit-scrollbar {
+  width:8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background:linear-gradient(var(--aurora-2),var(--aurora-3));
+  border-radius:8px;
+}
+
 /* Aurora theme tokens */
   .theme-aurora {
   --ff-ui: 'Inter', system-ui, sans-serif;
