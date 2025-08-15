@@ -5320,6 +5320,57 @@ portalCtx.restore(); // end circular clip
 
     return response.blob();
   }
+
+  const MEDIA_CHUNK_SIZE = 10 * 1024 * 1024;
+  const mediaHashMismatches = [];
+
+  async function dbxDownloadVerified(path, expectedHash){
+    if(!state.sync?.accessToken){
+      throw new Error('No access token available');
+    }
+
+    const baseHeaders = {
+      'Authorization': `Bearer ${state.sync.accessToken}`,
+      'Dropbox-API-Arg': JSON.stringify({ path })
+    };
+    const url = 'https://content.dropboxapi.com/2/files/download';
+
+    let response = await fetch(url, {method:'POST', headers:{...baseHeaders, Range:'bytes=0-0'}});
+    if(response.status === 401 && await refreshAccessToken()){
+      baseHeaders['Authorization'] = `Bearer ${state.sync.accessToken}`;
+      response = await fetch(url, {method:'POST', headers:{...baseHeaders, Range:'bytes=0-0'}});
+    }
+    if(!response.ok){
+      const t = await response.text();
+      throw new Error(`Download failed: ${response.status} - ${t}`);
+    }
+
+    const meta = response.headers.get('Dropbox-API-Result');
+    const metadata = meta ? JSON.parse(meta) : {};
+    const size = metadata.size || 0;
+    const chunks = [await response.arrayBuffer()];
+    let offset = 1;
+    while(offset < size){
+      const end = Math.min(offset + MEDIA_CHUNK_SIZE - 1, size - 1);
+      let r = await fetch(url, {method:'POST', headers:{...baseHeaders, Range:`bytes=${offset}-${end}`}});
+      if(r.status === 401 && await refreshAccessToken()){
+        baseHeaders['Authorization'] = `Bearer ${state.sync.accessToken}`;
+        r = await fetch(url, {method:'POST', headers:{...baseHeaders, Range:`bytes=${offset}-${end}`}});
+      }
+      if(!r.ok){
+        const t = await r.text();
+        throw new Error(`Download chunk failed: ${r.status} - ${t}`);
+      }
+      chunks.push(await r.arrayBuffer());
+      offset = end + 1;
+    }
+
+    const blob = new Blob(chunks, {type: metadata?.mime_type || 'application/octet-stream'});
+    if(expectedHash && metadata?.content_hash && expectedHash !== metadata.content_hash){
+      mediaHashMismatches.push({path, expected: expectedHash, actual: metadata.content_hash});
+    }
+    return {blob, contentHash: metadata.content_hash};
+  }
   
   async function syncPush(silent = false){ 
     try{
@@ -5428,8 +5479,37 @@ portalCtx.restore(); // end circular clip
     if(restoreFileInput){ restoreFileInput.style.display='inline-block'; }
   });
 
+  async function startDropboxRestore(opts){
+    try{
+      setSyncStatus('Restoring from Dropbox...');
+      const root = state.sync?.dropboxRootPath || BACKUP_ROOT_PATH;
+      if(opts.media){
+        const indexBlob = await dbxDownload(`${root}/${MEDIA_INDEX_FILE}`);
+        const indexText = await indexBlob.text();
+        let index;
+        try{ index = JSON.parse(indexText); }
+        catch{ index = {}; }
+        const entries = Array.isArray(index) ? index : (index.files ? index.files : Object.values(index));
+        for(const item of entries){
+          if(!item) continue;
+          const rel = item.path || item.path_display || item.name;
+          const expected = item.sha256 || item.content_hash || item.hash;
+          const fullPath = `${root}/media/${rel}`;
+          await dbxDownloadVerified(fullPath, expected);
+        }
+      }
+      if(mediaHashMismatches.length){
+        console.warn('Hash mismatches detected:', mediaHashMismatches);
+      }
+      setSyncStatus('Restore complete');
+    }catch(err){
+      console.error('Restore failed:', err);
+      setSyncStatus('Restore failed: ' + err.message);
+    }
+  }
+
   async function syncPull(){
-    try{ 
+    try{
       setSyncStatus('Pulling from Dropbox...');
       
       if(!state.sync?.accessToken) {
