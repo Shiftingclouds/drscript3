@@ -63,7 +63,7 @@ body {
   --aurora-2: #7c6cff;
   --aurora-3: #45d1ff;
   --aurora-4: #ffd7a8;
-  --border: rgba(255, 255, 255, .12);
+  --border: rgba(255, 255, 255, .34);
   --glass: rgba(18, 22, 30, .55);
   --shadow: 0 12px 40px rgba(0, 0, 0, .45);
 
