@@ -18,7 +18,7 @@
   html,body{height:100%}
   body{margin:0; color:var(--ink); background:radial-gradient(1200px 800px at 10% -10%, rgba(124,108,255,.08), transparent 55%), radial-gradient(900px 700px at 110% 20%, rgba(139,92,246,.06), transparent 60%), var(--bg-primary); font-size:16px; line-height:1.6; font-weight:400; font-family:var(--ff-ui);}
 
-  .app{display:grid; grid-template-columns:280px 1fr; min-height:100vh; transition:opacity .5s; opacity:0}
+  .app{display:grid; grid-template-columns:280px 1fr; min-height:100vh; transition:opacity .5s; opacity:0; position:relative; z-index:2}
 
   /* Sidebar */
   .side{background:linear-gradient(180deg, var(--bg-elev), var(--bg-primary)); border-right:1px solid var(--border); padding:22px 16px; position:sticky; top:0; height:100vh; overflow:auto}
@@ -177,7 +177,7 @@
   .viz-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr)); gap:12px}
   .viz-thumb{position:relative; width:100%; padding-top:100%; border:1px solid var(--border); border-radius:14px; background:var(--bg-0) center/cover no-repeat; cursor:pointer; overflow:hidden}
   .viz-thumb .cap{position:absolute; inset:auto 0 0 0; padding:6px 8px; background:linear-gradient(180deg, transparent, rgba(0,0,0,.55)); font-size:12px}
-  #launchScene{position:fixed; inset:0; background:var(--bg-0); transition:opacity .5s}
+  #launchScene{position:fixed; inset:0; background:var(--bg-0); transition:opacity .5s; z-index:2}
 /* Launch scene canvas with subtle orb glow */
 #launchScene canvas{
   position:absolute;
@@ -188,6 +188,14 @@
   /* subtle glow and shadow around orbs */
   filter: drop-shadow(0 0 6px rgba(255,255,255,.15))
           drop-shadow(0 2px 4px rgba(0,0,0,.6));
+}
+
+#starfieldContainer canvas{
+  position:absolute;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
 }
 
 /* Portal canvas inside main app view */
@@ -252,7 +260,10 @@
 </style>
 </head>
 <body class="theme-aurora">
-<div id="launchScene"><canvas id="starfieldCanvas"></canvas><canvas id="portalCanvas"></canvas><button id="enterApp"><span class="enter-label">Enter Tracking App</span></button></div>
+<div id="starfieldContainer" style="position:fixed; inset:0; z-index:0;">
+  <canvas id="starfieldCanvas"></canvas>
+</div>
+<div id="launchScene"><canvas id="portalCanvas"></canvas><button id="enterApp"><span class="enter-label">Enter Tracking App</span></button></div>
 <div class="app" style="display:none">
   <aside class="side">
     <div class="brand">
