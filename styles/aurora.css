@@ -160,11 +160,33 @@
 
 .theme-aurora input:focus,
 .theme-aurora textarea:focus,
-.theme-aurora select:focus,
-.theme-aurora .input:focus {
-  border-color:var(--aurora-3);
-  box-shadow:0 0 0 4px rgba(69,209,255,.18);
-}
+  .theme-aurora select:focus,
+  .theme-aurora .input:focus {
+    border-color:var(--aurora-3);
+    box-shadow:0 0 0 4px rgba(69,209,255,.18);
+  }
+
+  .theme-aurora .formatted {
+    line-height:1.5;
+  }
+
+  .theme-aurora .formatted ul {
+    padding-left:20px;
+    margin:8px 0;
+  }
+
+  .theme-aurora .formatted mark {
+    background:var(--aurora-4);
+    color:var(--bg-0);
+    padding:0 2px;
+    border-radius:4px;
+  }
+
+  .theme-aurora .formatted [style*="background-color"] {
+    color:var(--bg-0);
+    padding:0 2px;
+    border-radius:4px;
+  }
 
 @keyframes aurora {
   0% {

@@ -857,7 +857,18 @@ button::-moz-focus-inner{
   <div class="modal-card" style="width:min(560px,95vw)">
     <h3 style="margin:0 0 10px">New Scenario</h3>
     <div class="field"><label class="label">Title</label><input id="scenarioTitle" class="text"/></div>
-    <div class="field"><label class="label">Description</label><textarea id="scenarioDesc" class="textarea"></textarea></div>
+    <div class="field">
+      <label class="label">Description</label>
+      <div class="rte">
+        <div class="rtebar">
+          <button data-cmd="bold">B</button>
+          <button data-cmd="italic"><em>I</em></button>
+          <button data-cmd="insertUnorderedList">• List</button>
+          <button data-cmd="hiliteColor" data-arg="var(--aurora-4)">HL</button>
+        </div>
+        <div id="scenarioDesc" class="area" contenteditable="true" spellcheck="false" style="min-height:120px"></div>
+      </div>
+    </div>
     <div class="field"><label class="label">Collection</label><select id="scenarioCollection" class="text"><option value="">Unassigned</option></select></div>
     <div class="field"><label class="label">Add Category</label><input id="scenarioCategoryInput" class="text" placeholder="Type and press Enter"/></div>
     <div class="field"><label class="label">Categories</label><div id="scenarioCategories" class="tagbar"></div></div>
@@ -2612,7 +2623,8 @@ portalCtx.restore(); // end circular clip
     if(q){
       items=items.filter(sc=>{
         const title=(sc.title||'').toLowerCase();
-        const desc=(sc.desc||'').toLowerCase();
+        const descHtml = sc.content || sc.desc || '';
+        const desc = descHtml.replace(/<[^>]*>/g,'').toLowerCase();
         const tags=(sc.tags||[]).map(t=>t.toLowerCase());
         const location=(sc.location||'').toLowerCase();
         const characters=(sc.characters||[]).map(c=>c.toLowerCase());
@@ -2683,8 +2695,9 @@ portalCtx.restore(); // end circular clip
       card.className='scenario-card';
       const h4=document.createElement('h4');
       h4.textContent=sc.title||'Untitled';
-      const p=document.createElement('p');
-      p.textContent=sc.desc||'';
+      const p=document.createElement('div');
+      p.className='formatted';
+      p.innerHTML=sc.content || sc.desc || '';
       p.style.margin='0';
       p.style.color='var(--muted)';
       const tags=document.createElement('div');
@@ -2730,7 +2743,7 @@ portalCtx.restore(); // end circular clip
   qs('#scenarioCreate')?.addEventListener('click',()=>{
     currentTemplateId=null;
     scenarioTitle.value='';
-    scenarioDesc.value='';
+    scenarioDesc.innerHTML='';
     scCategoryMgr.clear();
     scTagMgr.clear();
     populateScenarioCollections();
@@ -2745,7 +2758,7 @@ portalCtx.restore(); // end circular clip
     currentTemplateId=id;
     const tpl=scenarioTemplates.find(t=>t.id===id);
     scenarioTitle.value='';
-    scenarioDesc.value=tpl?.prompt||'';
+    scenarioDesc.innerHTML=tpl?.prompt||'';
     scCategoryMgr.clear();
     scTagMgr.clear();
     populateScenarioCollections();
@@ -2761,7 +2774,7 @@ portalCtx.restore(); // end circular clip
   });
   qs('#scenarioSave')?.addEventListener('click',()=>{
     const title=(scenarioTitle.value||'').trim();
-    const desc=(scenarioDesc.value||'').trim();
+    const content=(scenarioDesc.innerHTML||'').trim();
     if(!title){ scenarioTitle.focus(); return; }
     const lib=getActiveLibrary();
     if(!lib.scenarios) lib.scenarios=[];
@@ -2770,7 +2783,7 @@ portalCtx.restore(); // end circular clip
     const category=scCategoryMgr.getTags();
     const tags=scTagMgr.getTags();
     const collectionId=scenarioCollectionSel.value||null;
-    lib.scenarios.push({id:uid(), title, desc, templateId, prompt, category, tags, collectionId, location:'', characters:[]});
+    lib.scenarios.push({id:uid(), title, content, templateId, prompt, category, tags, collectionId, location:'', characters:[]});
     save();
     closeModal(scenarioModal);
     currentTemplateId=null;
@@ -2790,7 +2803,7 @@ portalCtx.restore(); // end circular clip
       const area = btn.closest('.rte')?.querySelector('.area');
       if(area) {
         area.focus();
-        document.execCommand(btn.getAttribute('data-cmd'), false, null); 
+        document.execCommand(btn.getAttribute('data-cmd'), false, btn.getAttribute('data-arg')||null);
       }
     }
   });
