@@ -445,6 +445,7 @@ button::-moz-focus-inner{
         </select>
         <button class="btn primary" id="scenarioCreate">＋ New Scenario</button>
       </div>
+      <div id="scenarioTagBar" class="tagbar"></div>
       <div id="scenarioList" class="scenario-list"></div>
       <div id="scenarioEmpty" class="empty" style="display:none">No scenarios yet</div>
     </section>
@@ -826,6 +827,10 @@ button::-moz-focus-inner{
     <h3 style="margin:0 0 10px">New Scenario</h3>
     <div class="field"><label class="label">Title</label><input id="scenarioTitle" class="text"/></div>
     <div class="field"><label class="label">Description</label><textarea id="scenarioDesc" class="textarea"></textarea></div>
+    <div class="field"><label class="label">Add Category</label><input id="scenarioCategoryInput" class="text" placeholder="Type and press Enter"/></div>
+    <div class="field"><label class="label">Categories</label><div id="scenarioCategories" class="tagbar"></div></div>
+    <div class="field"><label class="label">Add Tag(s)</label><input id="scenarioTagsInput" class="text" placeholder="Type and press Enter"/></div>
+    <div class="field"><label class="label">Tags</label><div id="scenarioTags" class="tagbar"></div></div>
     <div class="actions"><button class="btn ghost" id="scenarioCancel">Cancel</button><button class="btn primary" id="scenarioSave">Save</button></div>
   </div>
 </div>
@@ -1210,6 +1215,7 @@ button::-moz-focus-inner{
   
   if(!state.playlists) state.playlists=[];
   if(!state.scenarios) state.scenarios=[];
+  if(state.scenarios) state.scenarios.forEach(sc=>{ sc.category ??= []; sc.tags ??= []; });
   if(!state.images) state.images=[];
   if(!state.videos) state.videos=[];
   if(!state.dreams) state.dreams=[];
@@ -2367,6 +2373,14 @@ portalCtx.restore(); // end circular clip
   const scenarioTitle=qs('#scenarioTitle');
   const scenarioDesc=qs('#scenarioDesc');
   const scenarioTemplateSel=qs('#scenarioTemplate');
+  const scenarioCategoryInput=qs('#scenarioCategoryInput');
+  const scenarioCategories=qs('#scenarioCategories');
+  const scenarioTagsInput=qs('#scenarioTagsInput');
+  const scenarioTags=qs('#scenarioTags');
+  const scenarioTagBar=qs('#scenarioTagBar');
+  const scCategoryMgr=createTagManager(scenarioCategories, scenarioCategoryInput);
+  const scTagMgr=createTagManager(scenarioTags, scenarioTagsInput);
+  let activeScenarioTagFilters=new Set();
   let currentTemplateId=null;
 
   const scenarioTemplates=[
@@ -2383,8 +2397,31 @@ portalCtx.restore(); // end circular clip
   });
 
   function renderScenarios(){
+    scenarioTagBar.innerHTML='';
+    const allTags=Array.from(new Set((state.scenarios||[]).flatMap(s=>s.tags||[]))).sort((a,b)=>a.localeCompare(b));
+    allTags.forEach(t=>{
+      const chip=document.createElement('span');
+      chip.className='tag';
+      chip.textContent=t;
+      chip.dataset.tag=t;
+      if(activeScenarioTagFilters.has(t)) chip.classList.add('active');
+      chip.onclick=()=>{
+        if(activeScenarioTagFilters.has(t)) activeScenarioTagFilters.delete(t);
+        else activeScenarioTagFilters.add(t);
+        renderScenarios();
+      };
+      scenarioTagBar.appendChild(chip);
+    });
+
     scenarioList.innerHTML='';
-    const items=state.scenarios||[];
+    let items=state.scenarios||[];
+    if(activeScenarioTagFilters.size){
+      items=items.filter(sc=>{
+        const set=new Set(sc.tags||[]);
+        for(const t of activeScenarioTagFilters){ if(!set.has(t)) return false; }
+        return true;
+      });
+    }
     if(items.length===0){
       scenarioEmpty.style.display='grid';
       return;
@@ -2399,6 +2436,23 @@ portalCtx.restore(); // end circular clip
       p.textContent=sc.desc||'';
       p.style.margin='0';
       p.style.color='var(--muted)';
+      const tags=document.createElement('div');
+      tags.className='tags';
+      tags.style.display='flex';
+      tags.style.gap='6px';
+      tags.style.flexWrap='wrap';
+      (sc.tags||[]).forEach(t=>{
+        const chip=document.createElement('span');
+        chip.className='tag';
+        chip.textContent=t;
+        chip.dataset.tag=t;
+        chip.onclick=()=>{
+          if(activeScenarioTagFilters.has(t)) activeScenarioTagFilters.delete(t);
+          else activeScenarioTagFilters.add(t);
+          renderScenarios();
+        };
+        tags.appendChild(chip);
+      });
       const actions=document.createElement('div');
       actions.className='scenario-actions';
       const del=document.createElement('button');
@@ -2417,7 +2471,7 @@ portalCtx.restore(); // end circular clip
         }
       };
       actions.appendChild(del);
-      card.append(h4,p,actions);
+      card.append(h4,p,tags,actions);
       scenarioList.appendChild(card);
     });
   }
@@ -2426,6 +2480,8 @@ portalCtx.restore(); // end circular clip
     currentTemplateId=null;
     scenarioTitle.value='';
     scenarioDesc.value='';
+    scCategoryMgr.clear();
+    scTagMgr.clear();
     scenarioModal.classList.add('open');
     scenarioTitle.focus();
   });
@@ -2437,6 +2493,8 @@ portalCtx.restore(); // end circular clip
     const tpl=scenarioTemplates.find(t=>t.id===id);
     scenarioTitle.value='';
     scenarioDesc.value=tpl?.prompt||'';
+    scCategoryMgr.clear();
+    scTagMgr.clear();
     scenarioModal.classList.add('open');
     scenarioTitle.focus();
     scenarioTemplateSel.value='';
@@ -2453,10 +2511,14 @@ portalCtx.restore(); // end circular clip
     if(!state.scenarios) state.scenarios=[];
     const templateId=currentTemplateId;
     const prompt=scenarioTemplates.find(t=>t.id===templateId)?.prompt||'';
-    state.scenarios.push({id:uid(), title, desc, templateId, prompt});
+    const category=scCategoryMgr.getTags();
+    const tags=scTagMgr.getTags();
+    state.scenarios.push({id:uid(), title, desc, templateId, prompt, category, tags});
     save();
     closeModal(scenarioModal);
     currentTemplateId=null;
+    scCategoryMgr.clear();
+    scTagMgr.clear();
     renderScenarios();
   });
 
@@ -2513,17 +2575,52 @@ portalCtx.restore(); // end circular clip
     }
   });
 
+  function createTagManager(container, input){
+    function addChip(tag){
+      const t=String(tag).trim();
+      if(!t) return;
+      const chip=document.createElement('span');
+      chip.className='tag';
+      chip.textContent=t;
+      chip.dataset.tag=t;
+      const x=document.createElement('button');
+      x.textContent='✕';
+      x.className='btn small';
+      x.style.marginLeft='6px';
+      x.onclick=(ev)=>{ ev.preventDefault(); chip.remove(); };
+      chip.appendChild(x);
+      container.appendChild(chip);
+    }
+    input?.addEventListener('keydown',(e)=>{
+      if(e.key==='Enter'){
+        e.preventDefault();
+        const v=input.value.trim();
+        if(v){
+          v.split(',').map(s=>s.trim()).filter(Boolean).forEach(addChip);
+          input.value='';
+        }
+      }
+    });
+    return {
+      add:addChip,
+      getTags:()=>Array.from(container.querySelectorAll('.tag')).map(t=>t.dataset.tag),
+      setTags(tags){ container.innerHTML=''; (tags||[]).forEach(addChip); },
+      clear(){ container.innerHTML=''; if(input) input.value=''; }
+    };
+  }
+
   // ===== Journal =====
   const jModal=qs('#journalModal'); 
   const jTitle=qs('#jTitle'); 
   const jDate=qs('#jDate'); 
   const jPortalSel=qs('#jPortal'); 
   const jBody=qs('#jBody'); 
-  const jTagsInput=qs('#jTagsInput'); 
-  const jTags=qs('#jTags'); 
-  const jSearch=qs('#jSearch'); 
-  const jSort=qs('#jSort'); 
-  const jPortalFilter2=qs('#jPortalFilter'); 
+  const jTagsInput=qs('#jTagsInput');
+  const jTags=qs('#jTags');
+  const jTagMgr=createTagManager(jTags, jTagsInput);
+  const jSearch=qs('#jSearch');
+  const jSort=qs('#jSort');
+  const jPortalFilter2=qs('#jPortalFilter');
   const jTagBar=qs('#jTagBar');
   let currentEntryIndex=null; 
   let activeTagFilters=new Set();
@@ -2531,11 +2628,11 @@ portalCtx.restore(); // end circular clip
   qs('#newEntry').onclick=()=> openJournalEditor();
   qs('#jCancel').onclick=()=>{ closeModal(jModal); };
   qs('#jSave').onclick=()=>{
-    const tags = Array.from(jTags.querySelectorAll('.tag')).map(t=>t.dataset.tag);
-    const entry={ 
-      id: currentEntryIndex==null? uid() : state.journal[currentEntryIndex].id, 
-      title: (jTitle.value||'').trim(), 
-      date: new Date(jDate.value).toISOString(), 
+    const tags = jTagMgr.getTags();
+    const entry={
+      id: currentEntryIndex==null? uid() : state.journal[currentEntryIndex].id,
+      title: (jTitle.value||'').trim(),
+      date: new Date(jDate.value).toISOString(),
       portalIndex: parseInt(jPortalSel.value||'-1',10), 
       html: jBody.innerHTML, 
       text: jBody.textContent||'', 
@@ -2552,35 +2649,6 @@ portalCtx.restore(); // end circular clip
     renderJournal();
   };
   
-  jTagsInput.addEventListener('keydown',(e)=>{ 
-    if(e.key==='Enter'){ 
-      e.preventDefault(); 
-      const v=jTagsInput.value.trim(); 
-      if(v){ 
-        v.split(',').map(s=>s.trim()).filter(Boolean).forEach(addTagChip); 
-        jTagsInput.value=''; 
-      } 
-    } 
-  });
-  
-  function addTagChip(tag){ 
-    const t=String(tag).trim(); 
-    if(!t) return; 
-    const chip=document.createElement('span'); 
-    chip.className='tag'; 
-    chip.textContent=t; 
-    chip.dataset.tag=t; 
-    const x=document.createElement('button'); 
-    x.textContent='✕'; 
-    x.className='btn small'; 
-    x.style.marginLeft='6px'; 
-    x.onclick=(ev)=>{ 
-      ev.preventDefault(); 
-      chip.remove(); 
-    }; 
-    chip.appendChild(x); 
-    jTags.appendChild(chip); 
-  }
 
   document.addEventListener('click',(ev)=>{
     const edit = ev.target.closest('[data-j-edit]'); 
@@ -2635,11 +2703,9 @@ portalCtx.restore(); // end circular clip
     });
     jTitle.value = entry?.title||''; 
     jDate.value = entry?.date ? toLocalInput(entry.date) : toLocalInput(new Date().toISOString()); 
-    jPortalSel.value = String(entry?.portalIndex ?? -1); 
+    jPortalSel.value = String(entry?.portalIndex ?? -1);
     jBody.innerHTML = entry?.html || (entry?.text? entry.text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '');
-    jTags.innerHTML=''; 
-    (entry?.tags||[]).forEach(addTagChip); 
-    jTagsInput.value='';
+    jTagMgr.setTags(entry?.tags||[]);
   }
 
   function renderJournal(){
