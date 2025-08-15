@@ -869,6 +869,7 @@ button::-moz-focus-inner{
         <div id="scenarioDesc" class="area" contenteditable="true" spellcheck="false" style="min-height:120px"></div>
       </div>
     </div>
+    <div id="scenarioDraftIndicator" style="display:none; font-size:12px; color:var(--muted); text-align:right; margin:-8px 0 8px">Draft saved</div>
     <div class="field"><label class="label">Collection</label><select id="scenarioCollection" class="text"><option value="">Unassigned</option></select></div>
     <div class="field"><label class="label">Add Category</label><input id="scenarioCategoryInput" class="text" placeholder="Type and press Enter"/></div>
     <div class="field"><label class="label">Categories</label><div id="scenarioCategories" class="tagbar"></div></div>
@@ -2585,10 +2586,14 @@ portalCtx.restore(); // end circular clip
   const scenarioSearch=qs('#scenarioSearch');
   const scenarioFilter=qs('#scenarioFilter');
   const scenarioCollectionSel=qs('#scenarioCollection');
+  const scenarioDraftIndicator=qs('#scenarioDraftIndicator');
   const scCategoryMgr=createTagManager(scenarioCategories, scenarioCategoryInput);
   const scTagMgr=createTagManager(scenarioTags, scenarioTagsInput);
   let activeScenarioTagFilters=new Set();
   let currentTemplateId=null;
+  let currentScenarioId=null;
+  let draftIndicatorTimer=null;
+  let suppressDraftSave=false;
 
   const scenarioTemplates=[
     {id:'setting', name:'Dream Setting', prompt:'Describe the dream setting in vivid detail.'},
@@ -2603,6 +2608,63 @@ portalCtx.restore(); // end circular clip
     scenarioTemplateSel?.appendChild(opt);
   });
 
+  function scenarioDraftKey(id){
+    return `scenarioDraft-${id}`;
+  }
+  function showScenarioDraftIndicator(text='Draft saved'){
+    if(!scenarioDraftIndicator) return;
+    scenarioDraftIndicator.textContent=text;
+    scenarioDraftIndicator.style.display='block';
+    clearTimeout(draftIndicatorTimer);
+    draftIndicatorTimer=setTimeout(()=>{
+      scenarioDraftIndicator.style.display='none';
+    },1500);
+  }
+  function saveScenarioDraft(){
+    if(suppressDraftSave || !currentScenarioId) return;
+    const draft={
+      title: scenarioTitle.value||'',
+      content: scenarioDesc.innerHTML||'',
+      collectionId: scenarioCollectionSel.value||'',
+      categories: scCategoryMgr.getTags ? scCategoryMgr.getTags() : [],
+      tags: scTagMgr.getTags ? scTagMgr.getTags() : []
+    };
+    try{
+      localStorage.setItem(scenarioDraftKey(currentScenarioId), JSON.stringify(draft));
+      localStorage.setItem('scenarioDraftCurrent', currentScenarioId);
+      showScenarioDraftIndicator();
+    }catch(err){
+      console.warn('Failed to save draft', err);
+    }
+  }
+  function loadScenarioDraft(){
+    if(!currentScenarioId) return false;
+    const raw=localStorage.getItem(scenarioDraftKey(currentScenarioId));
+    if(!raw) return false;
+    try{
+      const draft=JSON.parse(raw);
+      suppressDraftSave=true;
+      scenarioTitle.value=draft.title||'';
+      scenarioDesc.innerHTML=draft.content||'';
+      scenarioCollectionSel.value=draft.collectionId||'';
+      if(draft.categories) scCategoryMgr.setTags?.(draft.categories);
+      if(draft.tags) scTagMgr.setTags?.(draft.tags);
+      suppressDraftSave=false;
+      return true;
+    }catch(err){
+      suppressDraftSave=false;
+      console.warn('Failed to load draft', err);
+      return false;
+    }
+  }
+  function clearScenarioDraft(id){
+    if(!id) return;
+    localStorage.removeItem(scenarioDraftKey(id));
+    if(localStorage.getItem('scenarioDraftCurrent')===id){
+      localStorage.removeItem('scenarioDraftCurrent');
+    }
+  }
+
   function populateScenarioCollections(){
     if(!scenarioCollectionSel) return;
     scenarioCollectionSel.innerHTML='<option value="">Unassigned</option>';
@@ -2613,6 +2675,29 @@ portalCtx.restore(); // end circular clip
       opt.textContent=c.title;
       scenarioCollectionSel.appendChild(opt);
     });
+  }
+
+  function openScenarioEditor(templateId=null){
+    if(scenarioDraftIndicator) scenarioDraftIndicator.style.display='none';
+    populateScenarioCollections();
+    let restored=false;
+    const existing=localStorage.getItem('scenarioDraftCurrent');
+    if(existing && localStorage.getItem(scenarioDraftKey(existing))){
+      currentScenarioId=existing;
+      restored=loadScenarioDraft();
+    }else{
+      currentScenarioId=uid();
+    }
+    currentTemplateId=templateId;
+    if(!restored){
+      scenarioTitle.value='';
+      scenarioDesc.innerHTML=templateId ? (scenarioTemplates.find(t=>t.id===templateId)?.prompt||'') : '';
+      scCategoryMgr.clear();
+      scTagMgr.clear();
+      scenarioCollectionSel.value='';
+    }
+    scenarioModal.classList.add('open');
+    scenarioTitle.focus();
   }
 
   function filterScenarios(){
@@ -2741,36 +2826,21 @@ portalCtx.restore(); // end circular clip
   }
 
   qs('#scenarioCreate')?.addEventListener('click',()=>{
-    currentTemplateId=null;
-    scenarioTitle.value='';
-    scenarioDesc.innerHTML='';
-    scCategoryMgr.clear();
-    scTagMgr.clear();
-    populateScenarioCollections();
-    scenarioCollectionSel.value='';
-    scenarioModal.classList.add('open');
-    scenarioTitle.focus();
+    openScenarioEditor();
   });
 
   scenarioTemplateSel?.addEventListener('change',()=>{
     const id=scenarioTemplateSel.value;
     if(!id) return;
-    currentTemplateId=id;
-    const tpl=scenarioTemplates.find(t=>t.id===id);
-    scenarioTitle.value='';
-    scenarioDesc.innerHTML=tpl?.prompt||'';
-    scCategoryMgr.clear();
-    scTagMgr.clear();
-    populateScenarioCollections();
-    scenarioCollectionSel.value='';
-    scenarioModal.classList.add('open');
-    scenarioTitle.focus();
+    openScenarioEditor(id);
     scenarioTemplateSel.value='';
   });
 
   qs('#scenarioCancel')?.addEventListener('click',()=>{
     closeModal(scenarioModal);
     currentTemplateId=null;
+    currentScenarioId=null;
+    if(scenarioDraftIndicator) scenarioDraftIndicator.style.display='none';
   });
   qs('#scenarioSave')?.addEventListener('click',()=>{
     const title=(scenarioTitle.value||'').trim();
@@ -2783,15 +2853,27 @@ portalCtx.restore(); // end circular clip
     const category=scCategoryMgr.getTags();
     const tags=scTagMgr.getTags();
     const collectionId=scenarioCollectionSel.value||null;
-    lib.scenarios.push({id:uid(), title, content, templateId, prompt, category, tags, collectionId, location:'', characters:[]});
+    const id=currentScenarioId||uid();
+    lib.scenarios.push({id, title, content, templateId, prompt, category, tags, collectionId, location:'', characters:[]});
     save();
     closeModal(scenarioModal);
     currentTemplateId=null;
+    clearScenarioDraft(id);
+    currentScenarioId=null;
     scCategoryMgr.clear();
     scTagMgr.clear();
     scenarioCollectionSel.value='';
+    if(scenarioDraftIndicator) scenarioDraftIndicator.style.display='none';
     filterScenarios();
   });
+
+  scenarioTitle?.addEventListener('input', saveScenarioDraft);
+  scenarioDesc?.addEventListener('input', saveScenarioDraft);
+  scenarioCollectionSel?.addEventListener('change', saveScenarioDraft);
+  const scCatObserver=new MutationObserver(saveScenarioDraft);
+  const scTagObserver=new MutationObserver(saveScenarioDraft);
+  if(scenarioCategories) scCatObserver.observe(scenarioCategories,{childList:true});
+  if(scenarioTags) scTagObserver.observe(scenarioTags,{childList:true});
 
   scenarioSearch?.addEventListener('input', ()=> filterScenarios());
   scenarioFilter?.addEventListener('change', ()=> filterScenarios());
