@@ -163,8 +163,9 @@
   .rte .area img{max-width:100%; border-radius:10px; border:1px solid var(--border)}
 
   /* Drawer + Modals */
-  .drawer{position:fixed; inset:auto 0 0 0; height:78vh; background:linear-gradient(180deg, var(--bg-1), var(--bg-0)); border-top:1px solid var(--border); box-shadow:var(--shadow); translate:0 110%; transition:.25s ease}
+  .drawer{position:fixed; inset:auto 0 0 0; height:78vh; background:linear-gradient(180deg, var(--bg-1), var(--bg-0)); border-top:1px solid var(--border); box-shadow:var(--shadow); translate:0 110%; transition:.25s ease; z-index:200}
   .drawer.open{translate:0 0}
+  .drawer-overlay{position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:199}
   .drawer .sections{border-right:1px solid var(--border); padding:16px; overflow:auto}
   .drawer .editor{padding:18px; overflow:auto}
 
@@ -2589,6 +2590,7 @@ portalCtx.restore(); // end circular clip
   // ===== Portal Editor Logic =====
   let peIndex=null;
   const peDrawer=qs('#portalDrawer');
+  let peOverlay=null;
   const peName=qs('#peName');
   const peCoverPrev=qs('#peCoverPrev');
   const peCoverInput=qs('#peCoverInput');
@@ -2617,33 +2619,44 @@ portalCtx.restore(); // end circular clip
     return p;
   }
 
-  function openPortalEditor(idx){
-    peIndex=idx;
-    const p = ensurePortalShape(state.portals[idx]);
-    peName.value = p.name||'';
-    if(p.cover){ 
-      peCoverPrev.dataset.src=p.cover; 
-      peCoverPrev.style.backgroundImage=`url(${p.cover})`; 
-      peCoverPrev.textContent=''; 
-    }
-    else { 
-      peCoverPrev.dataset.src=''; 
-      peCoverPrev.style.backgroundImage=''; 
-      peCoverPrev.textContent='IMG'; 
+    function openPortalEditor(idx){
+      lastFocusedElement = document.activeElement;
+      peIndex=idx;
+      const p = ensurePortalShape(state.portals[idx]);
+      peName.value = p.name||'';
+      if(p.cover){
+        peCoverPrev.dataset.src=p.cover;
+        peCoverPrev.style.backgroundImage=`url(${p.cover})`;
+        peCoverPrev.textContent='';
+      }
+      else {
+        peCoverPrev.dataset.src='';
+        peCoverPrev.style.backgroundImage='';
+        peCoverPrev.textContent='IMG';
+      }
+
+      renderSectionList(p);
+      renderSectionEditors(p);
+
+      peOverlay=document.createElement('div');
+      peOverlay.className='drawer-overlay';
+      peOverlay.setAttribute('aria-hidden','true');
+      peOverlay.addEventListener('click', closePortalEditor);
+      document.body.appendChild(peOverlay);
+
+      peDrawer.classList.add('open');
+      peDrawer.setAttribute('aria-hidden','false');
+      peName.focus();
     }
 
-    renderSectionList(p);
-    renderSectionEditors(p);
-
-    peDrawer.classList.add('open'); 
-    peDrawer.setAttribute('aria-hidden','false');
-  }
-  
-  function closePortalEditor(){ 
-    peDrawer.classList.remove('open'); 
-    peDrawer.setAttribute('aria-hidden','true'); 
-    peIndex=null; 
-  }
+    function closePortalEditor(){
+      peDrawer.classList.remove('open');
+      peDrawer.setAttribute('aria-hidden','true');
+      peOverlay?.remove();
+      peOverlay=null;
+      peIndex=null;
+      lastFocusedElement?.focus();
+    }
 
   function renderSectionList(p){
     peSecList.innerHTML='';
@@ -3521,6 +3534,7 @@ portalCtx.restore(); // end circular clip
   document.addEventListener('keydown', (e) => {
     if(e.key === 'Escape') {
       document.querySelectorAll('.modal.open').forEach(m => closeModal(m));
+      if(peDrawer.classList.contains('open')) closePortalEditor();
     }
   });
 
