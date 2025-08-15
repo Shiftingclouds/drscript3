@@ -856,9 +856,15 @@ button::-moz-focus-inner{
 
 <div class="modal" id="scenarioModal" aria-hidden="true">
   <div class="modal-card" style="width:min(560px,95vw)">
-    <h3 style="margin:0 0 10px">New Scenario</h3>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin:0 0 10px">
+      <h3 style="margin:0">New Scenario</h3>
+      <select id="scenarioMode" class="text" style="width:auto">
+        <option value="free">Freeform</option>
+        <option value="prompt">Prompt</option>
+      </select>
+    </div>
     <div class="field"><label class="label">Title</label><input id="scenarioTitle" class="text"/></div>
-    <div class="field">
+    <div class="field" id="scenarioDescField">
       <label class="label">Description</label>
       <div class="rte">
         <div class="rtebar">
@@ -877,6 +883,11 @@ button::-moz-focus-inner{
           </div>
         </div>
       </div>
+    </div>
+    <div id="scenarioSectionContainer" style="display:none">
+      <div class="field"><label class="label">Setting</label><textarea id="scenarioSetting" class="textarea"></textarea></div>
+      <div class="field"><label class="label">Characters</label><textarea id="scenarioCharacters" class="textarea"></textarea></div>
+      <div class="field"><label class="label">Conflict</label><textarea id="scenarioConflict" class="textarea"></textarea></div>
     </div>
     <div id="scenarioDraftIndicator" style="display:none; font-size:12px; color:var(--muted); text-align:right; margin:-8px 0 8px">Draft saved</div>
     <div class="field"><label class="label">Collection</label><select id="scenarioCollection" class="text"><option value="">Unassigned</option></select></div>
@@ -2596,6 +2607,12 @@ portalCtx.restore(); // end circular clip
   const scenarioFilter=qs('#scenarioFilter');
   const scenarioCollectionSel=qs('#scenarioCollection');
   const scenarioDraftIndicator=qs('#scenarioDraftIndicator');
+  const scenarioMode=qs('#scenarioMode');
+  const scenarioDescField=qs('#scenarioDescField');
+  const scenarioSectionContainer=qs('#scenarioSectionContainer');
+  const scenarioSetting=qs('#scenarioSetting');
+  const scenarioCharacters=qs('#scenarioCharacters');
+  const scenarioConflict=qs('#scenarioConflict');
   const scCategoryMgr=createTagManager(scenarioCategories, scenarioCategoryInput);
   const scTagMgr=createTagManager(scenarioTags, scenarioTagsInput);
   const questionToggle=qs('#questionToggle');
@@ -2657,6 +2674,18 @@ portalCtx.restore(); // end circular clip
     }
   });
 
+  function updateScenarioMode(){
+    const mode=scenarioMode?.value||'free';
+    if(mode==='prompt'){
+      scenarioDescField.style.display='none';
+      scenarioSectionContainer.style.display='block';
+    }else{
+      scenarioDescField.style.display='';
+      scenarioSectionContainer.style.display='none';
+    }
+  }
+  scenarioMode?.addEventListener('change',()=>{updateScenarioMode(); saveScenarioDraft();});
+
   questionHide?.addEventListener('click', ()=>{
     questionContainer.style.display='none';
     questionToggle.textContent='Show Questions';
@@ -2676,13 +2705,23 @@ portalCtx.restore(); // end circular clip
   }
   function saveScenarioDraft(){
     if(suppressDraftSave || !currentScenarioId) return;
+    const mode=scenarioMode?.value||'free';
     const draft={
       title: scenarioTitle.value||'',
-      content: scenarioDesc.innerHTML||'',
       collectionId: scenarioCollectionSel.value||'',
       categories: scCategoryMgr.getTags ? scCategoryMgr.getTags() : [],
-      tags: scTagMgr.getTags ? scTagMgr.getTags() : []
+      tags: scTagMgr.getTags ? scTagMgr.getTags() : [],
+      mode
     };
+    if(mode==='prompt'){
+      draft.sections={
+        setting: scenarioSetting.value||'',
+        characters: scenarioCharacters.value||'',
+        conflict: scenarioConflict.value||''
+      };
+    }else{
+      draft.content=scenarioDesc.innerHTML||'';
+    }
     try{
       localStorage.setItem(scenarioDraftKey(currentScenarioId), JSON.stringify(draft));
       localStorage.setItem('scenarioDraftCurrent', currentScenarioId);
@@ -2699,7 +2738,15 @@ portalCtx.restore(); // end circular clip
       const draft=JSON.parse(raw);
       suppressDraftSave=true;
       scenarioTitle.value=draft.title||'';
-      scenarioDesc.innerHTML=draft.content||'';
+      scenarioMode.value=draft.mode||'free';
+      updateScenarioMode();
+      if(draft.mode==='prompt'){
+        scenarioSetting.value=draft.sections?.setting||'';
+        scenarioCharacters.value=draft.sections?.characters||'';
+        scenarioConflict.value=draft.sections?.conflict||'';
+      }else{
+        scenarioDesc.innerHTML=draft.content||'';
+      }
       scenarioCollectionSel.value=draft.collectionId||'';
       if(draft.categories) scCategoryMgr.setTags?.(draft.categories);
       if(draft.tags) scTagMgr.setTags?.(draft.tags);
@@ -2745,7 +2792,12 @@ portalCtx.restore(); // end circular clip
     currentTemplateId=templateId;
     if(!restored){
       scenarioTitle.value='';
+      scenarioMode.value='free';
+      updateScenarioMode();
       scenarioDesc.innerHTML=templateId ? (scenarioTemplates.find(t=>t.id===templateId)?.prompt||'') : '';
+      scenarioSetting.value='';
+      scenarioCharacters.value='';
+      scenarioConflict.value='';
       scCategoryMgr.clear();
       scTagMgr.clear();
       scenarioCollectionSel.value='';
@@ -2762,7 +2814,7 @@ portalCtx.restore(); // end circular clip
     if(q){
       items=items.filter(sc=>{
         const title=(sc.title||'').toLowerCase();
-        const descHtml = sc.content || sc.desc || '';
+        const descHtml = sc.sections ? Object.values(sc.sections).join(' ') : (sc.content || sc.desc || '');
         const desc = descHtml.replace(/<[^>]*>/g,'').toLowerCase();
         const tags=(sc.tags||[]).map(t=>t.toLowerCase());
         const location=(sc.location||'').toLowerCase();
@@ -2834,11 +2886,30 @@ portalCtx.restore(); // end circular clip
       card.className='scenario-card';
       const h4=document.createElement('h4');
       h4.textContent=sc.title||'Untitled';
-      const p=document.createElement('div');
-      p.className='formatted';
-      p.innerHTML=sc.content || sc.desc || '';
-      p.style.margin='0';
-      p.style.color='var(--muted)';
+      card.appendChild(h4);
+      if(sc.sections){
+        const sectionTitles={setting:'Setting', characters:'Characters', conflict:'Conflict'};
+        Object.entries(sectionTitles).forEach(([key,label])=>{
+          const val=sc.sections[key];
+          if(!val) return;
+          const sh=document.createElement('h5');
+          sh.textContent=label;
+          sh.style.margin='6px 0 0';
+          const sp=document.createElement('div');
+          sp.className='formatted';
+          sp.innerHTML=val;
+          sp.style.margin='0 0 4px';
+          sp.style.color='var(--muted)';
+          card.append(sh, sp);
+        });
+      }else{
+        const p=document.createElement('div');
+        p.className='formatted';
+        p.innerHTML=sc.content || sc.desc || '';
+        p.style.margin='0';
+        p.style.color='var(--muted)';
+        card.appendChild(p);
+      }
       const tags=document.createElement('div');
       tags.className='tags';
       tags.style.display='flex';
@@ -2874,7 +2945,8 @@ portalCtx.restore(); // end circular clip
         }
       };
       actions.appendChild(del);
-      card.append(h4,p,tags,actions);
+      card.appendChild(tags);
+      card.appendChild(actions);
       scenarioList.appendChild(card);
     });
   }
@@ -2897,8 +2969,19 @@ portalCtx.restore(); // end circular clip
     if(scenarioDraftIndicator) scenarioDraftIndicator.style.display='none';
   });
   qs('#scenarioSave')?.addEventListener('click',()=>{
+    const mode=scenarioMode.value;
     const title=(scenarioTitle.value||'').trim();
-    const content=(scenarioDesc.innerHTML||'').trim();
+    let content='';
+    let sections=null;
+    if(mode==='prompt'){
+      sections={
+        setting:(scenarioSetting.value||'').trim(),
+        characters:(scenarioCharacters.value||'').trim(),
+        conflict:(scenarioConflict.value||'').trim()
+      };
+    }else{
+      content=(scenarioDesc.innerHTML||'').trim();
+    }
     if(!title){ scenarioTitle.focus(); return; }
     const lib=getActiveLibrary();
     if(!lib.scenarios) lib.scenarios=[];
@@ -2908,7 +2991,10 @@ portalCtx.restore(); // end circular clip
     const tags=scTagMgr.getTags();
     const collectionId=scenarioCollectionSel.value||null;
     const id=currentScenarioId||uid();
-    lib.scenarios.push({id, title, content, templateId, prompt, category, tags, collectionId, location:'', characters:[]});
+    const scData={id, title, templateId, prompt, category, tags, collectionId, location:'', characters:[], mode};
+    if(mode==='prompt') scData.sections=sections;
+    else scData.content=content;
+    lib.scenarios.push(scData);
     save();
     closeModal(scenarioModal);
     currentTemplateId=null;
@@ -2917,12 +3003,21 @@ portalCtx.restore(); // end circular clip
     scCategoryMgr.clear();
     scTagMgr.clear();
     scenarioCollectionSel.value='';
+    scenarioMode.value='free';
+    updateScenarioMode();
+    scenarioDesc.innerHTML='';
+    scenarioSetting.value='';
+    scenarioCharacters.value='';
+    scenarioConflict.value='';
     if(scenarioDraftIndicator) scenarioDraftIndicator.style.display='none';
     filterScenarios();
   });
 
   scenarioTitle?.addEventListener('input', saveScenarioDraft);
   scenarioDesc?.addEventListener('input', saveScenarioDraft);
+  scenarioSetting?.addEventListener('input', saveScenarioDraft);
+  scenarioCharacters?.addEventListener('input', saveScenarioDraft);
+  scenarioConflict?.addEventListener('input', saveScenarioDraft);
   scenarioCollectionSel?.addEventListener('change', saveScenarioDraft);
   const scCatObserver=new MutationObserver(saveScenarioDraft);
   const scTagObserver=new MutationObserver(saveScenarioDraft);
