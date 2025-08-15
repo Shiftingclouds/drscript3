@@ -2933,7 +2933,20 @@ portalCtx.restore(); // end circular clip
       files.forEach((f,idx)=>{
         const id=uid();
         const dropboxPath=`/Apps/DR Script Builder/media/${id}_${f.name}`;
-        dbxUpload(dropboxPath, f).then(()=>{
+        const THRESHOLD = 150 * 1024 * 1024;
+        const doUpload = async () => {
+          try{
+            if(f.size > THRESHOLD){
+              await dbxUploadChunked(f, dropboxPath);
+            }else{
+              await dbxUpload(dropboxPath, f);
+            }
+          }catch(err){
+            console.warn('Standard upload failed, retrying chunked', err);
+            await dbxUploadChunked(f, dropboxPath);
+          }
+        };
+        doUpload().then(()=>{
           const base={
             id,
             path:dropboxPath,
@@ -3947,18 +3960,84 @@ portalCtx.restore(); // end circular clip
     return response;
   }
 
-  function setSyncStatus(msg){
-    const el=qs('#syncStatus'); 
-    if(el) el.textContent = 'Status: ' + msg; 
-    console.log('Sync status:', msg);
+  function setSyncStatus(msg, progress){
+    const el=qs('#syncStatus');
+    const pct = typeof progress === 'number' ? ` (${Math.round(progress*100)}%)` : '';
+    if(el) el.textContent = 'Status: ' + msg + pct;
+    console.log('Sync status:', msg, progress);
   }
   
-  async function dbxUpload(path, blob){ 
+  async function dbxUpload(path, blob){
     try {
       await dropboxContentApiCall('files/upload', blob, path);
       return { success: true };
     } catch(err) {
       console.error('Upload failed:', err);
+      setSyncStatus('Upload failed: ' + err.message);
+      throw err;
+    }
+  }
+
+  async function dbxUploadChunked(blob, path){
+    if(!state.sync?.accessToken) {
+      throw new Error('No access token available');
+    }
+    const CHUNK_SIZE = 8 * 1024 * 1024; // 8MB per chunk
+    const totalSize = blob.size;
+    let offset = 0;
+    let sessionId;
+    try{
+      // Start session
+      let chunk = blob.slice(0, CHUNK_SIZE);
+      let headers = {
+        'Authorization': `Bearer ${state.sync.accessToken}`,
+        'Content-Type': 'application/octet-stream',
+        'Dropbox-API-Arg': JSON.stringify({close:false})
+      };
+      let url = 'https://content.dropboxapi.com/2/files/upload_session/start';
+      let res = await fetch(url, {method:'POST', headers, body:chunk});
+      if(res.status === 401 && await refreshAccessToken()){
+        headers['Authorization'] = `Bearer ${state.sync.accessToken}`;
+        res = await fetch(url, {method:'POST', headers, body:chunk});
+      }
+      if(!res.ok){
+        const t = await res.text();
+        throw new Error(`Dropbox chunk start failed: ${res.status} - ${t}`);
+      }
+      const data = await res.json();
+      sessionId = data.session_id;
+      offset += chunk.size;
+      setSyncStatus(`Uploading ${path}`, offset/totalSize);
+
+      while(offset < totalSize){
+        chunk = blob.slice(offset, offset + CHUNK_SIZE);
+        const isLast = offset + chunk.size >= totalSize;
+        url = isLast
+          ? 'https://content.dropboxapi.com/2/files/upload_session/finish'
+          : 'https://content.dropboxapi.com/2/files/upload_session/append_v2';
+        const apiArg = isLast
+          ? {cursor:{session_id:sessionId, offset}, commit:{path, mode:'overwrite'}}
+          : {cursor:{session_id:sessionId, offset}, close:false};
+        headers = {
+          'Authorization': `Bearer ${state.sync.accessToken}`,
+          'Content-Type': 'application/octet-stream',
+          'Dropbox-API-Arg': JSON.stringify(apiArg)
+        };
+        res = await fetch(url, {method:'POST', headers, body:chunk});
+        if(res.status === 401 && await refreshAccessToken()){
+          headers['Authorization'] = `Bearer ${state.sync.accessToken}`;
+          res = await fetch(url, {method:'POST', headers, body:chunk});
+        }
+        if(!res.ok){
+          const t = await res.text();
+          throw new Error(`Dropbox chunk ${isLast?'finish':'append'} failed: ${res.status} - ${t}`);
+        }
+        offset += chunk.size;
+        setSyncStatus(`Uploading ${path}`, offset/totalSize);
+      }
+      return {success:true};
+    }catch(err){
+      console.error('Chunked upload failed:', err);
       setSyncStatus('Upload failed: ' + err.message);
       throw err;
     }
@@ -4006,8 +4085,8 @@ portalCtx.restore(); // end circular clip
   }
   
   async function syncPush(silent = false){ 
-    try{ 
-      if(!silent) setSyncStatus('Pushing to Dropbox...');
+    try{
+      if(!silent) setSyncStatus('Pushing to Dropbox...', 0);
       
       if(!state.sync?.accessToken) {
         throw new Error('No access token - please connect Dropbox first');
@@ -4017,7 +4096,17 @@ portalCtx.restore(); // end circular clip
       const blob = new Blob([json], {type:'application/json'});
       const path = (state.sync?.path) || '/Apps/DR Script Builder/data.json';
 
-      await dbxUpload(path, blob);
+      const THRESHOLD = 150 * 1024 * 1024;
+      try{
+        if(blob.size > THRESHOLD){
+          await dbxUploadChunked(blob, path);
+        }else{
+          await dbxUpload(path, blob);
+        }
+      }catch(err){
+        console.warn('Standard upload failed, retrying chunked', err);
+        await dbxUploadChunked(blob, path);
+      }
       state.sync.lastSync = Date.now();
       let quota=false;
       try{
