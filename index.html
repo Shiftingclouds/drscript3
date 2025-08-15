@@ -152,6 +152,12 @@
   .scenario-list{display:grid; gap:12px; margin-top:10px}
   .scenario-card{background:var(--bg-1); border:1px solid var(--border); border-radius:14px; padding:14px; display:grid; gap:6px}
   .scenario-actions{display:flex; gap:6px; justify-content:flex-end}
+  .image-strip{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px}
+  .image-thumb{width:60px; height:60px; background:var(--bg-0) center/cover no-repeat; border-radius:8px; position:relative; cursor:pointer}
+  .image-thumb .remove{position:absolute; top:-6px; right:-6px; background:rgba(0,0,0,.6); color:var(--ink); border:none; border-radius:50%; width:18px; height:18px; display:grid; place-items:center; font-size:12px; cursor:pointer}
+  .pick-gallery{display:flex; flex-wrap:wrap; gap:8px; max-height:50vh; overflow:auto}
+  .pick-thumb{width:80px; height:80px; background:var(--bg-0) center/cover no-repeat; border:2px solid transparent; border-radius:8px; cursor:pointer}
+  .pick-thumb.selected{border-color:var(--aurora-2)}
   .collection-list{display:grid; gap:12px; margin-top:10px}
   .collection-item{background:var(--bg-1); border:1px solid var(--border); border-radius:14px; padding:14px; display:flex; justify-content:space-between; align-items:center}
   .collection-actions{display:flex; gap:6px}
@@ -895,7 +901,21 @@ button::-moz-focus-inner{
     <div class="field"><label class="label">Categories</label><div id="scenarioCategories" class="tagbar"></div></div>
     <div class="field"><label class="label">Add Tag(s)</label><input id="scenarioTagsInput" class="text" placeholder="Type and press Enter"/></div>
     <div class="field"><label class="label">Tags</label><div id="scenarioTags" class="tagbar"></div></div>
+    <div class="field"><label class="label">Images</label><div id="scenarioImageStrip" class="image-strip"></div><button class="btn small" id="scenarioAddImageBtn" style="margin-top:8px">Add Images</button></div>
     <div class="actions"><button class="btn ghost" id="scenarioCancel">Cancel</button><button class="btn primary" id="scenarioSave">Save</button></div>
+  </div>
+</div>
+
+<!-- Scenario Image Picker -->
+<div class="modal" id="scenarioImagePicker" aria-hidden="true">
+  <div class="modal-card" style="width:min(560px,95vw)">
+    <h3 style="margin-top:0">Select Images</h3>
+    <div id="scenarioImgGallery" class="pick-gallery"></div>
+    <div style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end">
+      <label class="btn small" style="justify-content:center">Upload<input id="scenarioImgFile" type="file" accept="image/*" multiple style="display:none"/></label>
+      <button class="btn small ghost" id="scenarioImgCancel">Cancel</button>
+      <button class="btn small primary" id="scenarioImgDone">Done</button>
+    </div>
   </div>
 </div>
 
@@ -1291,6 +1311,7 @@ button::-moz-focus-inner{
         sc.collectionId ??= null;
         sc.location ??= '';
         sc.characters ??= [];
+        sc.imageIds ??= [];
       });
     });
     delete state.scenarios;
@@ -2615,6 +2636,14 @@ portalCtx.restore(); // end circular clip
   const scenarioConflict=qs('#scenarioConflict');
   const scCategoryMgr=createTagManager(scenarioCategories, scenarioCategoryInput);
   const scTagMgr=createTagManager(scenarioTags, scenarioTagsInput);
+  const scenarioImageStrip=qs('#scenarioImageStrip');
+  const scenarioAddImageBtn=qs('#scenarioAddImageBtn');
+  const scenarioImgPicker=qs('#scenarioImagePicker');
+  const scenarioImgGallery=qs('#scenarioImgGallery');
+  const scenarioImgFile=qs('#scenarioImgFile');
+  const scenarioImgCancel=qs('#scenarioImgCancel');
+  const scenarioImgDone=qs('#scenarioImgDone');
+  let scImageIds=[];
   const questionToggle=qs('#questionToggle');
   const questionContainer=qs('#questionContainer');
   const questionPromptEl=qs('#questionPrompt');
@@ -2626,6 +2655,41 @@ portalCtx.restore(); // end circular clip
     'What is the main conflict?',
     'How do the characters feel?'
   ];
+  function renderScenarioImages(){
+    if(!scenarioImageStrip) return;
+    scenarioImageStrip.innerHTML='';
+    scImageIds.forEach(id=>{
+      const img=(state.images||[]).find(i=>i.id===id);
+      if(!img) return;
+      const th=document.createElement('div');
+      th.className='image-thumb';
+      fetchMediaUrl(img.path||img.src).then(url=>{ th.style.backgroundImage=`url(${url})`; });
+      const rm=document.createElement('button');
+      rm.className='remove';
+      rm.textContent='×';
+      rm.onclick=e=>{ e.stopPropagation(); scImageIds=scImageIds.filter(x=>x!==id); renderScenarioImages(); saveScenarioDraft(); };
+      th.appendChild(rm);
+      th.onclick=()=> openLightbox(img.path||img.src, img.name||'', img.id, 'image');
+      scenarioImageStrip.appendChild(th);
+    });
+  }
+  function renderScenarioImgGallery(){
+    if(!scenarioImgGallery) return;
+    scenarioImgGallery.innerHTML='';
+    (state.images||[]).forEach(img=>{
+      const th=document.createElement('div');
+      th.className='pick-thumb';
+      th.dataset.id=img.id;
+      fetchMediaUrl(img.path||img.src).then(url=>{ th.style.backgroundImage=`url(${url})`; });
+      if(scImageIds.includes(img.id)) th.classList.add('selected');
+      th.onclick=()=>{ const id=img.id; if(scImageIds.includes(id)){ scImageIds=scImageIds.filter(x=>x!==id); th.classList.remove('selected'); } else { scImageIds.push(id); th.classList.add('selected'); } saveScenarioDraft(); };
+      scenarioImgGallery.appendChild(th);
+    });
+  }
+  scenarioAddImageBtn?.addEventListener('click',()=>{ renderScenarioImgGallery(); scenarioImgPicker.classList.add('open'); });
+  scenarioImgCancel?.addEventListener('click',()=> closeModal(scenarioImgPicker));
+  scenarioImgDone?.addEventListener('click',()=>{ renderScenarioImages(); saveScenarioDraft(); closeModal(scenarioImgPicker); });
+  scenarioImgFile?.addEventListener('change',e=>{ const files=Array.from(e.target.files||[]); if(!files.length) return; if(!state.images) state.images=[]; let pending=files.length; files.forEach(f=>{ const r=new FileReader(); r.onload=()=>{ const id=uid(); state.images.push({id, path:r.result, name:f.name||'', tags:[], portalIndex:-1, created:Date.now()}); scImageIds.push(id); if(--pending===0){ save(); renderScenarioImgGallery(); saveScenarioDraft(); } }; r.readAsDataURL(f); }); e.target.value=''; });
   let currentQuestionIndex=0;
   let activeScenarioTagFilters=new Set();
   let currentTemplateId=null;
@@ -2711,7 +2775,8 @@ portalCtx.restore(); // end circular clip
       collectionId: scenarioCollectionSel.value||'',
       categories: scCategoryMgr.getTags ? scCategoryMgr.getTags() : [],
       tags: scTagMgr.getTags ? scTagMgr.getTags() : [],
-      mode
+      mode,
+      imageIds: scImageIds.slice()
     };
     if(mode==='prompt'){
       draft.sections={
@@ -2750,6 +2815,8 @@ portalCtx.restore(); // end circular clip
       scenarioCollectionSel.value=draft.collectionId||'';
       if(draft.categories) scCategoryMgr.setTags?.(draft.categories);
       if(draft.tags) scTagMgr.setTags?.(draft.tags);
+      scImageIds = draft.imageIds || [];
+      renderScenarioImages();
       suppressDraftSave=false;
       return true;
     }catch(err){
@@ -2801,7 +2868,9 @@ portalCtx.restore(); // end circular clip
       scCategoryMgr.clear();
       scTagMgr.clear();
       scenarioCollectionSel.value='';
+      scImageIds=[];
     }
+    renderScenarioImages();
     scenarioModal.classList.add('open');
     scenarioTitle.focus();
   }
@@ -2910,6 +2979,20 @@ portalCtx.restore(); // end circular clip
         p.style.color='var(--muted)';
         card.appendChild(p);
       }
+      if(sc.imageIds && sc.imageIds.length){
+        const strip=document.createElement('div');
+        strip.className='image-strip';
+        sc.imageIds.forEach(id=>{
+          const img=(state.images||[]).find(i=>i.id===id);
+          if(!img) return;
+          const th=document.createElement('div');
+          th.className='image-thumb';
+          fetchMediaUrl(img.path||img.src).then(url=>{ th.style.backgroundImage=`url(${url})`; });
+          th.onclick=e=>{ e.stopPropagation(); openLightbox(img.path||img.src, img.name||'', img.id, 'image'); };
+          strip.appendChild(th);
+        });
+        card.appendChild(strip);
+      }
       const tags=document.createElement('div');
       tags.className='tags';
       tags.style.display='flex';
@@ -2991,7 +3074,7 @@ portalCtx.restore(); // end circular clip
     const tags=scTagMgr.getTags();
     const collectionId=scenarioCollectionSel.value||null;
     const id=currentScenarioId||uid();
-    const scData={id, title, templateId, prompt, category, tags, collectionId, location:'', characters:[], mode};
+    const scData={id, title, templateId, prompt, category, tags, collectionId, location:'', characters:[], mode, imageIds:scImageIds.slice()};
     if(mode==='prompt') scData.sections=sections;
     else scData.content=content;
     lib.scenarios.push(scData);
@@ -3010,6 +3093,8 @@ portalCtx.restore(); // end circular clip
     scenarioCharacters.value='';
     scenarioConflict.value='';
     if(scenarioDraftIndicator) scenarioDraftIndicator.style.display='none';
+    scImageIds=[];
+    renderScenarioImages();
     filterScenarios();
   });
 
