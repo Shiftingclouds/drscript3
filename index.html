@@ -36,10 +36,12 @@
   .main{padding:28px 28px 80px; overflow:auto}
   h2.title{font-size:36px; margin:0 0 14px}
 
-  .btn{--bg:var(--bg-1); --bd:var(--border); --tx:var(--ink); background:linear-gradient(180deg, var(--bg), var(--bg-0)); border:1px solid var(--bd); color:var(--tx); padding:10px 14px; border-radius:12px; cursor:pointer; font-weight:600; display:inline-flex; align-items:center; gap:10px}
-  .btn:hover{filter:brightness(1.06)}
-  .btn.primary{--bg:linear-gradient(180deg, var(--aurora-2), var(--aurora-3)); --bd:var(--aurora-2)}
-  .btn.ghost{background:transparent}
+  .btn{--bg:linear-gradient(180deg, var(--bg-1), var(--bg-0)); position:relative; color:var(--ink); padding:10px 14px; border-radius:12px; border:1px solid var(--border); cursor:pointer; font-weight:600; display:inline-flex; align-items:center; gap:10px; background:linear-gradient(120deg, rgba(255,255,255,.15), rgba(255,255,255,0)), var(--bg); transition:transform .2s ease}
+  .btn::after{content:""; position:absolute; inset:-6px; border-radius:inherit; pointer-events:none; background:conic-gradient(from 0deg at 50% 50%, var(--aurora-1), var(--aurora-2), var(--aurora-3), var(--aurora-4), var(--aurora-1)); filter:blur(12px); opacity:0; transition:opacity .2s ease; z-index:-1}
+  .btn:hover{transform:translateY(-1px)}
+  .btn:hover::after{opacity:1}
+  .btn.primary{--bg:linear-gradient(180deg, var(--aurora-2), var(--aurora-3)); border-color:var(--aurora-2)}
+  .btn.ghost{--bg:transparent; background:transparent}
   .btn.small{padding:6px 10px; font-size:13px}
 
   /* Portals */
