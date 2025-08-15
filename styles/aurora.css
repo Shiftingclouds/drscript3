@@ -1,0 +1,13 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Playfair+Display:wght@500;700&family=Space+Mono:wght@400;700&display=swap');
+
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+.title, h1, h2, h3 {
+  font-family: 'Playfair Display', serif;
+}
+
+.log, .codey {
+  font-family: 'Space Mono', monospace;
+}
