@@ -125,6 +125,18 @@ body {
   color: #0f1420;
 }
 
+input, textarea, select, .input {
+  background:var(--glass);
+  border:1px solid var(--border);
+  border-radius:12px;
+  backdrop-filter:blur(6px);
+}
+
+input:focus, textarea:focus, select:focus, .input:focus {
+  border-color:var(--aurora-3);
+  box-shadow:0 0 0 4px rgba(69,209,255,.18);
+}
+
 @keyframes aurora {
   0% {
     transform: translateY(calc(var(--parallax) * -1)) translate3d(-10%, -10%, 0) scale(1);
