@@ -1361,10 +1361,27 @@ if (
 // Prepare to track async image loads (used later in renderPortalScene)
 const loadPromises = [];
 
+    function getPortalRadius(img, base){
+      const maxR = base * 0.08;
+      if (!img || !img.naturalWidth || !img.naturalHeight) return maxR;
+      return Math.min(Math.min(img.naturalWidth, img.naturalHeight) / 2, maxR);
+    }
+
     portalSceneObjs=(state.portals||[]).map(p=>{
       const base = Math.min(portalCanvas.width, portalCanvas.height) / dpr;
-      const r = base * 0.06 + Math.random() * base * 0.06;
-      const orbitRadius = r * (2 + Math.random());
+      const src = p.coverImage || p.cover || (p.gallery && p.gallery[0]);
+      let img = null;
+      if (src) {
+        img = imageCache.get(src);
+        if (!img) {
+          img = new Image();
+          imageCache.set(src, img);
+          img.src = src;
+        }
+      }
+      const r = p.displayRadius || getPortalRadius(img, base);
+      p.displayRadius = r;
+      const orbitRadius = r * 2;
       const angle = Math.random() * Math.PI * 2;
       const cx = Math.random() * portalCanvas.width;
       const cy = Math.random() * portalCanvas.height;
@@ -1378,33 +1395,19 @@ const loadPromises = [];
         angVel:(Math.random()-0.5)*0.01,
         r,
         color:`hsl(${Math.random()*360},70%,60%)`,
-texture: null,
-cover: null,
-title: p.title || p.name || 'Portal',
-portal: p,
-x: cx + Math.cos(angle) * orbitRadius,
-y: cy + Math.sin(angle) * orbitRadius
-};
+        texture: img,
+        cover: img,
+        title: p.title || p.name || 'Portal',
+        portal: p,
+        x: cx + Math.cos(angle) * orbitRadius,
+        y: cy + Math.sin(angle) * orbitRadius
+      };
 
-const src = p.coverImage || p.cover || (p.gallery && p.gallery[0]);
-if (src) {
-  let img = imageCache.get(src);
-  if (!img) {
-    img = new Image();
-    imageCache.set(src, img);
-    img.src = src;
-  }
-
-  // Keep both properties for compatibility with existing draw code
-  obj.texture = img;
-  obj.cover = img;
-
-  if (!img.complete) {
-    loadPromises.push(new Promise(res => {
-      img.onload = () => res();
-      img.onerror = () => { imageCache.delete(src); obj.texture = obj.cover = null; res(); };
-    }));
-  }
+if (img && !img.complete) {
+  loadPromises.push(new Promise(res => {
+    img.onload = () => res();
+    img.onerror = () => { imageCache.delete(src); obj.texture = obj.cover = null; res(); };
+  }));
 }
 
       return obj;
@@ -1468,7 +1471,10 @@ portalCtx.clip();
 // Draw image if present (support both properties)
 const img = o.cover || o.texture;
 if (img) {
-  portalCtx.drawImage(img, o.x - o.r, o.y - o.r, o.r * 2, o.r * 2);
+  const side = Math.min(img.naturalWidth, img.naturalHeight);
+  const sx = (img.naturalWidth - side) / 2;
+  const sy = (img.naturalHeight - side) / 2;
+  portalCtx.drawImage(img, sx, sy, side, side, o.x - o.r, o.y - o.r, o.r * 2, o.r * 2);
 } else {
   // Fallback: soft radial glow
   const g = portalCtx.createRadialGradient(o.x, o.y, o.r * 0.2, o.x, o.y, o.r);
