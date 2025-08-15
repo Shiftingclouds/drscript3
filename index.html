@@ -1317,6 +1317,28 @@ button::-moz-focus-inner{
   // ===== State =====
   const storeKey='drsb-data-v2';
   const syncKey='drsb-sync';
+  // ===== Backup constants =====
+  const BACKUP_ROOT_PATH = '/ShiftingClouds/DRScript';
+  const APP_STATE_FILE = 'app_state.json';
+  const SCENARIOS_FILE = 'scenarios.json';
+  const CHARACTERS_FILE = 'characters.json';
+  const LOCATIONS_FILE = 'locations.json';
+  const MEDIA_INDEX_FILE = 'media_index.json';
+  /*
+    Each JSON backup file should include a top-level `schema_version`
+    field for migration support.
+
+    Expected folder layout:
+      BACKUP_ROOT_PATH/
+        app_state.json
+        scenarios.json
+        characters.json
+        locations.json
+        media_index.json
+        media/
+          images/
+          videos/
+  */
   let state = load();
   if(state && !localStorage.getItem(storeKey)) save();
   if(!state) state={
@@ -1339,7 +1361,7 @@ button::-moz-focus-inner{
       accessToken:'',
       refreshToken:'',
       dropboxAccountId:'',
-      dropboxRootPath:'/ShiftingClouds/DRScript',
+      dropboxRootPath:BACKUP_ROOT_PATH,
       path:'/Apps/DR Script Builder/data.json',
       auto:false,
       intervalMins:5,
@@ -1388,9 +1410,9 @@ button::-moz-focus-inner{
   if(!state.projections) state.projections=[];
   if(!state.astralGoals) state.astralGoals=[];
   if(!state.astralTechniques) state.astralTechniques=[];
-  if(!state.sync) state.sync={provider:null, appKey:'', accessToken:'', refreshToken:'', dropboxAccountId:'', dropboxRootPath:'/ShiftingClouds/DRScript', path:'/Apps/DR Script Builder/data.json', auto:false, intervalMins:5, lastSync:0};
+  if(!state.sync) state.sync={provider:null, appKey:'', accessToken:'', refreshToken:'', dropboxAccountId:'', dropboxRootPath:BACKUP_ROOT_PATH, path:'/Apps/DR Script Builder/data.json', auto:false, intervalMins:5, lastSync:0};
   state.sync.dropboxAccountId ||= '';
-  state.sync.dropboxRootPath ||= '/ShiftingClouds/DRScript';
+  state.sync.dropboxRootPath ||= BACKUP_ROOT_PATH;
   state.sync.refreshToken ||= '';
 
   // ===== Utils =====
@@ -5000,7 +5022,7 @@ portalCtx.restore(); // end circular clip
       const data = await res.json();
       state.sync.accessToken = data.access_token;
       state.sync.dropboxAccountId = data.account_id || state.sync.dropboxAccountId || '';
-      state.sync.dropboxRootPath = state.sync.dropboxRootPath || '/ShiftingClouds/DRScript';
+      state.sync.dropboxRootPath = state.sync.dropboxRootPath || BACKUP_ROOT_PATH;
       save();
       try{
         localStorage.setItem(syncKey, JSON.stringify({accessToken: state.sync.accessToken, refreshToken: state.sync.refreshToken, provider: state.sync.provider, dropboxAccountId: state.sync.dropboxAccountId, dropboxRootPath: state.sync.dropboxRootPath}));
@@ -5487,7 +5509,7 @@ portalCtx.restore(); // end circular clip
       state.sync.refreshToken = data.refresh_token;
       state.sync.provider = 'dropbox';
       state.sync.dropboxAccountId = data.account_id || state.sync.dropboxAccountId || '';
-      state.sync.dropboxRootPath = state.sync.dropboxRootPath || '/ShiftingClouds/DRScript';
+      state.sync.dropboxRootPath = state.sync.dropboxRootPath || BACKUP_ROOT_PATH;
       save();
       try{
         localStorage.setItem(syncKey, JSON.stringify({accessToken: state.sync.accessToken, refreshToken: state.sync.refreshToken, provider: state.sync.provider, dropboxAccountId: state.sync.dropboxAccountId, dropboxRootPath: state.sync.dropboxRootPath}));
