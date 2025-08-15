@@ -23,6 +23,10 @@ body {
   border-radius:12px;
 }
 
+*, *::before, *::after {
+  transition: color 200ms, background-color 200ms, border-color 200ms;
+}
+
 /* Aurora theme tokens */
 .theme-aurora {
   --ff-ui: 'Inter', system-ui, sans-serif;
@@ -103,5 +107,12 @@ body {
   }
   100% {
     transform: translate3d(10%, 10%, 0) scale(1.1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
   }
 }
