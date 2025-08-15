@@ -78,7 +78,19 @@
   async function loadMedia() {
     try {
       const res = await fetch(MEDIA_INDEX_FILE);
-      const index = await res.json();
+      if (!res.ok) {
+        throw new Error(`Failed to fetch media index: HTTP ${res.status} ${res.statusText}`);
+      }
+      const contentType = res.headers.get('content-type');
+      if (contentType && !contentType.startsWith('application/json')) {
+        throw new Error(`Unexpected content-type: ${contentType}`);
+      }
+      let index;
+      try {
+        index = await res.json();
+      } catch (err) {
+        throw new Error('Invalid JSON in media index');
+      }
       const { eager, lazy } = planDownloads(index);
       window.lazyMedia = lazy; // placeholders
 
