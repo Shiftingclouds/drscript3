@@ -208,14 +208,14 @@
 /* Enter App button: centered, styled, animated, fixed to viewport */
 #enterApp{
   position:fixed;            /* <- fixed so it ignores canvas panning/zoom */
+  top:50%;
   left:50%;
-  bottom:20px;
-  transform:translateX(-50%);
+  transform:translate(-50%,-50%);
   z-index:1000;
   padding:14px 32px;
-  border:none;
+  border:2px solid var(--accent);
   border-radius:999px;
-  background:linear-gradient(135deg, var(--accent), var(--accent-2));
+  background:transparent;
   color:#fff;
   font-size:16px;
   font-weight:600;
@@ -225,25 +225,37 @@
   touch-action:manipulation;
 }
 
+.enter-label{
+  background:rgba(0,0,0,0.4);
+  padding:6px 16px;
+  border-radius:6px;
+  display:inline-block;
+}
+
 #enterApp:hover,
 #enterApp:focus{
   animation:enterPulse 1.2s ease-in-out alternate infinite;
+  box-shadow:0 0 16px rgba(124,108,255,.6);
+}
+#enterApp:hover .enter-label,
+#enterApp:focus .enter-label{
+  text-shadow:0 0 8px var(--accent);
 }
 
 #enterApp:active{
-  transform:translateX(-50%) scale(.97);
+  transform:translate(-50%,-50%) scale(.97);
   box-shadow:0 0 10px rgba(124,108,255,.5);
 }
 
 @keyframes enterPulse{
-  from{ transform:translateX(-50%) scale(1);   box-shadow:0 0 12px rgba(124,108,255,.4); }
-  to  { transform:translateX(-50%) scale(1.05); box-shadow:0 0 18px rgba(124,108,255,.6); }
+  from{ transform:translate(-50%,-50%) scale(1);   box-shadow:0 0 12px rgba(124,108,255,.4); }
+  to  { transform:translate(-50%,-50%) scale(1.05); box-shadow:0 0 18px rgba(124,108,255,.6); }
 }
 
 </style>
 </head>
 <body>
-<div id="launchScene"><canvas id="starfieldCanvas"></canvas><canvas id="portalCanvas"></canvas><button id="enterApp">Enter Tracking App</button></div>
+<div id="launchScene"><canvas id="starfieldCanvas"></canvas><canvas id="portalCanvas"></canvas><button id="enterApp"><span class="enter-label">Enter Tracking App</span></button></div>
 <div class="app" style="display:none">
   <aside class="side">
     <div class="brand">
