@@ -5078,6 +5078,47 @@ portalCtx.restore(); // end circular clip
     return response;
   }
 
+  async function listLatestBackup(){
+    const root = state.sync?.dropboxRootPath || BACKUP_ROOT_PATH;
+    const path = `${root}/backups`;
+    let res = await dropboxApiCall('files/list_folder', {body: JSON.stringify({path})});
+    let data = await res.json();
+    let entries = data.entries || [];
+    while(data.has_more){
+      res = await dropboxApiCall('files/list_folder/continue', {body: JSON.stringify({cursor: data.cursor})});
+      data = await res.json();
+      entries = entries.concat(data.entries || []);
+    }
+    const candidates = entries.filter(e=>e['.tag']==='folder' || e['.tag']==='file');
+    if(candidates.length===0) return null;
+    candidates.sort((a,b)=>{
+      const at=new Date(a.server_modified || a.client_modified || 0).getTime();
+      const bt=new Date(b.server_modified || b.client_modified || 0).getTime();
+      return bt-at;
+    });
+    return candidates[0];
+  }
+
+  async function showBackupPicker(){
+    const root = state.sync?.dropboxRootPath || BACKUP_ROOT_PATH;
+    const path = `${root}/backups`;
+    let res = await dropboxApiCall('files/list_folder', {body: JSON.stringify({path})});
+    let data = await res.json();
+    let entries = data.entries || [];
+    while(data.has_more){
+      res = await dropboxApiCall('files/list_folder/continue', {body: JSON.stringify({cursor: data.cursor})});
+      data = await res.json();
+      entries = entries.concat(data.entries || []);
+    }
+    const candidates = entries.filter(e=>e['.tag']==='folder' || e['.tag']==='file');
+    if(candidates.length===0){ alert('No backups found'); return null; }
+    const list = candidates.map((e,i)=>`${i+1}. ${e.name}`).join('\n');
+    const choice = prompt('Select a backup to restore:\n'+list);
+    const idx = parseInt(choice,10)-1;
+    if(isNaN(idx) || !candidates[idx]) return null;
+    return candidates[idx];
+  }
+
   async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwrite') {
     if(!state.sync?.accessToken) {
       throw new Error('No access token available');
