@@ -83,6 +83,20 @@ body {
   box-shadow:var(--shadow);
 }
 
+.panel .header {
+  font-family: var(--ff-h);
+  font-size: 1.15rem;
+  letter-spacing: .5px;
+}
+
+.chip {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--aurora-1), var(--aurora-3));
+  color: #0f1420;
+}
+
 @keyframes aurora {
   0% {
     transform: translate3d(-10%, -10%, 0) scale(1);
