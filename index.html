@@ -741,6 +741,31 @@ button::-moz-focus-inner{
   </div>
 </div>
 
+<div class="modal" id="restoreModal" aria-hidden="true">
+  <div class="modal-card" style="max-width:420px">
+    <h3 style="margin:0 0 12px">Restore Options</h3>
+    <div class="field">
+      <label class="label">Restore Target</label>
+      <label style="display:flex; gap:6px; align-items:center"><input type="radio" name="restoreTarget" value="latest" checked/> Latest backup</label>
+      <label style="display:flex; gap:6px; align-items:center"><input type="radio" name="restoreTarget" value="file"/> Choose file<input type="file" id="restoreFile" accept="application/json" style="display:none; margin-left:8px"/></label>
+    </div>
+    <div class="field" style="margin-top:12px">
+      <label class="label">Strategy</label>
+      <label style="display:flex; gap:6px; align-items:center"><input type="radio" name="restoreStrategy" value="overwrite" checked/> Overwrite</label>
+      <label style="display:flex; gap:6px; align-items:center"><input type="radio" name="restoreStrategy" value="merge"/> Merge</label>
+      <label style="display:flex; gap:6px; align-items:center"><input type="radio" name="restoreStrategy" value="preview"/> Preview</label>
+    </div>
+    <div class="field" style="margin-top:12px">
+      <label class="label">Include</label>
+      <label style="display:flex; gap:6px; align-items:center"><input type="checkbox" id="restoreAppState" checked/> App State</label>
+      <label style="display:flex; gap:6px; align-items:center"><input type="checkbox" id="restoreScenarios" checked/> Scenarios</label>
+      <label style="display:flex; gap:6px; align-items:center"><input type="checkbox" id="restoreMedia" checked/> Media</label>
+      <label style="display:flex; gap:6px; align-items:center"><input type="checkbox" id="restoreSettings" checked/> Settings</label>
+    </div>
+    <div class="actions"><button class="btn ghost" id="restoreCancel">Cancel</button><button class="btn primary" id="restoreConfirm">Restore</button></div>
+  </div>
+</div>
+
 <div class="modal" id="portalModal" aria-hidden="true">
   <div class="modal-card">
     <h3 style="margin:0 0 8px">Create Portal</h3>
@@ -5295,10 +5320,50 @@ portalCtx.restore(); // end circular clip
       alert('Connect Dropbox first.');
       return;
     }
-    if(confirm('This will replace your local data with the version stored in Dropbox. Continue?')){
-      syncPull();
+    lastFocusedElement = document.activeElement;
+    const modal = qs('#restoreModal');
+    const fileInput = qs('#restoreFile');
+    if(fileInput){
+      fileInput.value='';
+      fileInput.style.display='none';
     }
+    const targetLatest = modal?.querySelector('input[name="restoreTarget"][value="latest"]');
+    if(targetLatest) targetLatest.checked = true;
+    const strategyOverwrite = modal?.querySelector('input[name="restoreStrategy"][value="overwrite"]');
+    if(strategyOverwrite) strategyOverwrite.checked = true;
+    modal?.classList.add('open');
+    modal?.setAttribute('aria-hidden','false');
   }
+
+  const restoreModal = qs('#restoreModal');
+  const restoreFileInput = qs('#restoreFile');
+  const restoreCancel = qs('#restoreCancel');
+  const restoreConfirm = qs('#restoreConfirm');
+  const restoreLatestRadio = restoreModal?.querySelector('input[name="restoreTarget"][value="latest"]');
+  const restoreFileRadio = restoreModal?.querySelector('input[name="restoreTarget"][value="file"]');
+
+  restoreCancel?.addEventListener('click', ()=>{ closeModal(restoreModal); restoreModal?.setAttribute('aria-hidden','true'); });
+  restoreConfirm?.addEventListener('click', ()=>{
+    const opts = {
+      target: restoreModal?.querySelector('input[name="restoreTarget"]:checked')?.value,
+      strategy: restoreModal?.querySelector('input[name="restoreStrategy"]:checked')?.value,
+      appState: qs('#restoreAppState')?.checked,
+      scenarios: qs('#restoreScenarios')?.checked,
+      media: qs('#restoreMedia')?.checked,
+      settings: qs('#restoreSettings')?.checked,
+      file: restoreFileInput?.files?.[0] || null
+    };
+    closeModal(restoreModal);
+    restoreModal?.setAttribute('aria-hidden','true');
+    startDropboxRestore(opts);
+  });
+
+  restoreLatestRadio?.addEventListener('change', ()=>{
+    if(restoreFileInput){ restoreFileInput.style.display='none'; restoreFileInput.value=''; }
+  });
+  restoreFileRadio?.addEventListener('change', ()=>{
+    if(restoreFileInput){ restoreFileInput.style.display='inline-block'; }
+  });
 
   async function syncPull(){
     try{ 
