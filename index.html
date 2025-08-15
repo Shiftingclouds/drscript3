@@ -1121,6 +1121,21 @@
       }, 100);
     }
   }
+
+  function cleanupStateMedia(){
+    (state.images||[]).forEach(img=>{
+      if(img.src && !img.path) img.path = img.src;
+      if(img.src) delete img.src;
+    });
+    (state.videos||[]).forEach(vid=>{
+      if(vid.src && !vid.path) vid.path = vid.src;
+      if(vid.src) delete vid.src;
+    });
+  }
+
+  cleanupStateMedia();
+  save();
+
   function load(){
     let data=null;
     const v2 = localStorage.getItem(storeKey);
@@ -2618,10 +2633,30 @@ portalCtx.restore(); // end circular clip
   let currentLightboxMediaId=null;
   let currentLightboxType='image';
 
-  function openLightbox(src, meta, mediaId, type){
+  const mediaCache=new Map();
+  async function fetchMediaUrl(path){
+    if(!path) return '';
+    if(mediaCache.has(path)) return mediaCache.get(path);
+    if(path.startsWith('http') || path.startsWith('data:')){
+      mediaCache.set(path, path);
+      return path;
+    }
+    try{
+      const blob=await dbxDownload(path);
+      const url=URL.createObjectURL(blob);
+      mediaCache.set(path, url);
+      return url;
+    }catch(err){
+      console.error('Failed to load media', err);
+      return '';
+    }
+  }
+
+  async function openLightbox(path, meta, mediaId, type){
     lbMeta.textContent=meta||'';
     currentLightboxMediaId=mediaId;
     currentLightboxType=type;
+    const src=await fetchMediaUrl(path);
     if(type==='video'){
       lbImg.style.display='none';
       lbVideo.style.display='block';
@@ -2804,13 +2839,13 @@ portalCtx.restore(); // end circular clip
           th.onclick = () => window.open(it.src, '_blank'); // keep current UX for iframes
         } else {
           media = document.createElement('video');
-          media.src = it.src;
           media.controls = true;
           media.muted = true;
           if (it.poster) media.poster = it.poster;
+          fetchMediaUrl(it.path || it.src).then(url => { media.src = url; });
           // Use lightbox for local videos
           th.onclick = () => openLightbox(
-            it.src,
+            it.path || it.src,
             `${title}${it.tags?.length ? ' • ' + it.tags.join(', ') : ''}`,
             it.derived ? null : it.id,
             'video'
@@ -2823,9 +2858,11 @@ portalCtx.restore(); // end circular clip
         media.style.objectFit = 'cover';
         th.appendChild(media);
       } else {
-        th.style.backgroundImage = `url(${it.src})`;
+        fetchMediaUrl(it.path || it.src).then(url => {
+          th.style.backgroundImage = `url(${url})`;
+        });
         th.onclick = () => openLightbox(
-          it.src,
+          it.path || it.src,
           `${title}${it.tags?.length ? ' • ' + it.tags.join(', ') : ''}`,
           it.derived ? null : it.id,
           'image'
@@ -2878,15 +2915,20 @@ portalCtx.restore(); // end circular clip
     const portalIndex=parseInt(vizPortalSel.value||'-1',10);
 
     if(files.length){
+      if(!state.sync?.accessToken){
+        alert('Connect Dropbox first to upload media.');
+        return;
+      }
       let pending=files.length;
       if(!state.images) state.images=[];
       if(!state.videos) state.videos=[];
       files.forEach((f,idx)=>{
-        const r=new FileReader();
-        r.onload=()=>{
+        const id=uid();
+        const dropboxPath=`/Apps/DR Script Builder/media/${id}_${f.name}`;
+        dbxUpload(dropboxPath, f).then(()=>{
           const base={
-            id:uid(),
-            src:r.result,
+            id,
+            path:dropboxPath,
             name: prefix? `${prefix}${idx+1}` : (f.name||`file_${idx+1}`),
             tags:[...tags],
             portalIndex: isNaN(portalIndex)? -1 : portalIndex,
@@ -2897,6 +2939,10 @@ portalCtx.restore(); // end circular clip
           }else{
             state.images.push(base);
           }
+        }).catch(err=>{
+          console.error('Upload failed', err);
+          alert('Upload failed: '+err.message);
+        }).finally(()=>{
           if(--pending===0){
             save();
             closeModal(vizUploadModal);
@@ -2907,14 +2953,13 @@ portalCtx.restore(); // end circular clip
             if(vizPortalSel) vizPortalSel.value='-1';
             renderVisualizers();
           }
-        };
-        r.readAsDataURL(f);
+        });
       });
     } else if(link){
       if(!state.videos) state.videos=[];
       state.videos.push({
         id:uid(),
-        src:link,
+        path:link,
         name: prefix || link,
         tags:[...tags],
         portalIndex: isNaN(portalIndex)? -1 : portalIndex,
@@ -3900,17 +3945,8 @@ portalCtx.restore(); // end circular clip
       if(!state.sync?.accessToken) {
         throw new Error('No access token - please connect Dropbox first');
       }
-      
-      const lightState = JSON.parse(JSON.stringify(state));
-      
-      if(lightState.images) {
-        lightState.images = lightState.images.map(img => ({
-          ...img,
-          src: img.src?.startsWith('data:') ? `LOCAL_IMAGE_${img.id}` : img.src
-        }));
-      }
-      
-      const json = JSON.stringify(lightState); 
+
+      const json = JSON.stringify(state);
       const blob = new Blob([json], {type:'application/json'});
       const path = (state.sync?.path) || '/Apps/DR Script Builder/data.json';
 
@@ -3953,25 +3989,10 @@ portalCtx.restore(); // end circular clip
       const path = (state.sync?.path) || '/Apps/DR Script Builder/data.json'; 
       const file = await dbxDownload(path); 
       const text = await file.text(); 
-      const incoming = JSON.parse(text); 
-      
-      if(incoming.images) {
-        const localState = load();
-        const localImageMap = new Map();
-        if(localState?.images) {
-          localState.images.forEach(img => localImageMap.set(img.id, img.src));
-        }
-        
-        incoming.images = incoming.images.map(img => ({
-  ...img,
-  src: img.src?.startsWith('LOCAL_IMAGE_')
-    ? (localImageMap.get(img.id) || img.src)
-    : img.src
-}));
-
-      }
+      const incoming = JSON.parse(text);
 
       state = incoming;
+      cleanupStateMedia();
       let quota=false;
       try{
         localStorage.setItem(storeKey, JSON.stringify(state));
@@ -4212,6 +4233,7 @@ portalCtx.restore(); // end circular clip
         const incoming = JSON.parse(r.result);
         if(!incoming || typeof incoming!=='object') throw new Error('Invalid JSON');
         state = incoming;
+        cleanupStateMedia();
         save();
         renderAll();
         setSyncStatus('Imported local file');
