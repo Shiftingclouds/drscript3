@@ -17,6 +17,12 @@ body {
   font-family: var(--ff-mono);
 }
 
+:focus-visible {
+  outline:2px solid mix(var(--aurora-3), #fff);
+  outline-offset:3px;
+  border-radius:12px;
+}
+
 /* Aurora theme tokens */
 .theme-aurora {
   --ff-ui: 'Inter', system-ui, sans-serif;
