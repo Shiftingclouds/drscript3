@@ -458,6 +458,15 @@ button::-moz-focus-inner{
         <button class="btn primary" id="scenarioCreate">＋ New Scenario</button>
       </div>
       <div id="scenarioTagBar" class="tagbar"></div>
+      <div class="toolbar">
+        <input id="scenarioSearch" class="text" placeholder="Search scenarios..." style="min-width:240px"/>
+        <select id="scenarioFilter" class="text" style="max-width:240px">
+          <option value="">All metadata</option>
+          <option value="tag">Tags</option>
+          <option value="location">Location</option>
+          <option value="character">Characters</option>
+        </select>
+      </div>
       <div id="scenarioList" class="scenario-list"></div>
       <div id="scenarioEmpty" class="empty" style="display:none">No scenarios yet</div>
     </section>
@@ -1244,7 +1253,13 @@ button::-moz-focus-inner{
     state.libraries.forEach(lib=>{
       lib.scenarios ||= [];
       lib.collections ||= [];
-      lib.scenarios.forEach(sc=>{ sc.category ??= []; sc.tags ??= []; sc.collectionId ??= null; });
+      lib.scenarios.forEach(sc=>{
+        sc.category ??= [];
+        sc.tags ??= [];
+        sc.collectionId ??= null;
+        sc.location ??= '';
+        sc.characters ??= [];
+      });
     });
     delete state.scenarios;
     delete state.collections;
@@ -1387,7 +1402,7 @@ button::-moz-focus-inner{
     renderLibrarySelector();
     renderCollections();
     populateScenarioCollections();
-    renderScenarios();
+    filterScenarios();
   }
 
   renderLibrarySelector();
@@ -1440,7 +1455,7 @@ button::-moz-focus-inner{
       if(view==='waiting') renderWR();
       if(view==='playlists') renderPlaylists();
       if(view==='visualizers') renderVisualizers();
-      if(view==='scenarios') renderScenarios();
+      if(view==='scenarios') filterScenarios();
       if(view==='collections') renderCollections();
       if(view==='lucid') renderLucidDreaming();
       if(view==='astral') renderAstralProjection();
@@ -2486,7 +2501,7 @@ portalCtx.restore(); // end circular clip
           save();
           renderCollections();
           populateScenarioCollections();
-          renderScenarios();
+          filterScenarios();
         }
       };
       const actions=document.createElement('div');
@@ -2500,7 +2515,7 @@ portalCtx.restore(); // end circular clip
         [arr[idx-1], arr[idx]]=[arr[idx], arr[idx-1]];
         save();
         renderCollections();
-        renderScenarios();
+        filterScenarios();
       };
       const down=document.createElement('button');
       down.className='btn small';
@@ -2511,7 +2526,7 @@ portalCtx.restore(); // end circular clip
         [arr[idx], arr[idx+1]]=[arr[idx+1], arr[idx]];
         save();
         renderCollections();
-        renderScenarios();
+        filterScenarios();
       };
       const del=document.createElement('button');
       del.className='btn small';
@@ -2523,7 +2538,7 @@ portalCtx.restore(); // end circular clip
           (lib.scenarios||[]).forEach(sc=>{ if(sc.collectionId===removedId) sc.collectionId=null; });
           save();
           renderCollections();
-          renderScenarios();
+          filterScenarios();
           populateScenarioCollections();
         }
       };
@@ -2556,6 +2571,8 @@ portalCtx.restore(); // end circular clip
   const scenarioTagsInput=qs('#scenarioTagsInput');
   const scenarioTags=qs('#scenarioTags');
   const scenarioTagBar=qs('#scenarioTagBar');
+  const scenarioSearch=qs('#scenarioSearch');
+  const scenarioFilter=qs('#scenarioFilter');
   const scenarioCollectionSel=qs('#scenarioCollection');
   const scCategoryMgr=createTagManager(scenarioCategories, scenarioCategoryInput);
   const scTagMgr=createTagManager(scenarioTags, scenarioTagsInput);
@@ -2587,7 +2604,32 @@ portalCtx.restore(); // end circular clip
     });
   }
 
-  function renderScenarios(){
+  function filterScenarios(){
+    const lib=getActiveLibrary();
+    let items=lib.scenarios||[];
+    const q=(scenarioSearch?.value||'').toLowerCase().trim();
+    const f=scenarioFilter?.value||'';
+    if(q){
+      items=items.filter(sc=>{
+        const title=(sc.title||'').toLowerCase();
+        const desc=(sc.desc||'').toLowerCase();
+        const tags=(sc.tags||[]).map(t=>t.toLowerCase());
+        const location=(sc.location||'').toLowerCase();
+        const characters=(sc.characters||[]).map(c=>c.toLowerCase());
+        switch(f){
+          case 'tag': return tags.some(t=>t.includes(q));
+          case 'location': return location.includes(q);
+          case 'character': return characters.some(c=>c.includes(q));
+          default:
+            return title.includes(q) || desc.includes(q) || tags.some(t=>t.includes(q)) ||
+              location.includes(q) || characters.some(c=>c.includes(q));
+        }
+      });
+    }
+    renderScenarios(items);
+  }
+
+  function renderScenarios(items){
     const lib=getActiveLibrary();
     scenarioTagBar.innerHTML='';
     const allTags=Array.from(new Set((lib.scenarios||[]).flatMap(s=>s.tags||[]))).sort((a,b)=>a.localeCompare(b));
@@ -2600,33 +2642,34 @@ portalCtx.restore(); // end circular clip
       chip.onclick=()=>{
         if(activeScenarioTagFilters.has(t)) activeScenarioTagFilters.delete(t);
         else activeScenarioTagFilters.add(t);
-        renderScenarios();
+        filterScenarios();
       };
       scenarioTagBar.appendChild(chip);
     });
 
     scenarioList.innerHTML='';
-    let items=lib.scenarios||[];
+    let filtered=items ?? (lib.scenarios||[]);
     if(activeScenarioTagFilters.size){
-      items=items.filter(sc=>{
+      filtered=filtered.filter(sc=>{
         const set=new Set(sc.tags||[]);
         for(const t of activeScenarioTagFilters){ if(!set.has(t)) return false; }
         return true;
       });
     }
-    if(items.length===0){
+    if(filtered.length===0){
+      scenarioEmpty.textContent = (lib.scenarios||[]).length ? 'No scenarios match your search' : 'No scenarios yet';
       scenarioEmpty.style.display='grid';
       return;
     }
     scenarioEmpty.style.display='none';
     const order=(lib.collections||[]).map(c=>c.id);
-    items.sort((a,b)=>{
+    filtered.sort((a,b)=>{
       const ia=order.indexOf(a.collectionId);
       const ib=order.indexOf(b.collectionId);
       return (ia===-1?order.length:ia)-(ib===-1?order.length:ib);
     });
     let current=null;
-    items.forEach(sc=>{
+    filtered.forEach(sc=>{
       const cid=sc.collectionId||'';
       if(cid!==current){
         current=cid;
@@ -2657,7 +2700,7 @@ portalCtx.restore(); // end circular clip
         chip.onclick=()=>{
           if(activeScenarioTagFilters.has(t)) activeScenarioTagFilters.delete(t);
           else activeScenarioTagFilters.add(t);
-          renderScenarios();
+          filterScenarios();
         };
         tags.appendChild(chip);
       });
@@ -2674,7 +2717,7 @@ portalCtx.restore(); // end circular clip
           if(i>-1){
             lib.scenarios.splice(i,1);
             save();
-            renderScenarios();
+            filterScenarios();
           }
         }
       };
@@ -2727,15 +2770,18 @@ portalCtx.restore(); // end circular clip
     const category=scCategoryMgr.getTags();
     const tags=scTagMgr.getTags();
     const collectionId=scenarioCollectionSel.value||null;
-    lib.scenarios.push({id:uid(), title, desc, templateId, prompt, category, tags, collectionId});
+    lib.scenarios.push({id:uid(), title, desc, templateId, prompt, category, tags, collectionId, location:'', characters:[]});
     save();
     closeModal(scenarioModal);
     currentTemplateId=null;
     scCategoryMgr.clear();
     scTagMgr.clear();
     scenarioCollectionSel.value='';
-    renderScenarios();
+    filterScenarios();
   });
+
+  scenarioSearch?.addEventListener('input', ()=> filterScenarios());
+  scenarioFilter?.addEventListener('change', ()=> filterScenarios());
 
   // RTE shared (image insert)
   document.addEventListener('click',(e)=>{
@@ -5076,7 +5122,7 @@ portalCtx.restore(); // end circular clip
     renderWR();
     renderPlaylists();
     renderVisualizers();
-    renderScenarios();
+    filterScenarios();
     renderCollections();
     if(views.settings && !views.settings.hidden){
       renderSettings();
