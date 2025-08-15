@@ -5176,7 +5176,7 @@ portalCtx.restore(); // end circular clip
 
   async function listLatestBackup(){
     const root = state.sync?.dropboxRootPath || BACKUP_ROOT_PATH;
-    const path = `${root}/backups`;
+    const path = `${root}/local-backups`;
     let res = await dropboxApiCall('files/list_folder', {body: JSON.stringify({path})});
     let data = await res.json();
     let entries = data.entries || [];
@@ -5197,7 +5197,7 @@ portalCtx.restore(); // end circular clip
 
   async function showBackupPicker(){
     const root = state.sync?.dropboxRootPath || BACKUP_ROOT_PATH;
-    const path = `${root}/backups`;
+    const path = `${root}/local-backups`;
     let res = await dropboxApiCall('files/list_folder', {body: JSON.stringify({path})});
     let data = await res.json();
     let entries = data.entries || [];
