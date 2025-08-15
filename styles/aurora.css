@@ -102,6 +102,15 @@ body {
   box-shadow:var(--shadow);
 }
 
+.card {
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 24px rgba(0,0,0,.5);
+}
+
 .panel .header {
   font-family: var(--ff-h);
   font-size: 1.15rem;
