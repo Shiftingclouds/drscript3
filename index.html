@@ -1441,6 +1441,7 @@ button::-moz-focus-inner{
   let state = load();
   let restoreSnapshot = null;
   let conflictLogData = [];
+  const uploadQueue = new Map();
   if(state && !localStorage.getItem(storeKey)) save();
   if(!state) state={
     portals:[],
@@ -5629,66 +5630,79 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
   }
   
   async function syncPush(silent = false){
+    let path;
     try{
-      if(!silent) setSyncStatus('Pushing to Dropbox...', 0);
-
-      if(!state.sync?.accessToken) {
-        throw new Error('No access token - please connect Dropbox first');
-      }
-
-      const json = JSON.stringify(state);
-      const blob = new Blob([json], {type:'application/json'});
-      let path;
-      try{
-        path = normalizeDropboxPath((state.sync?.path) || '/data.json');
-      }catch(err){
-        alert(err.message + ' Please pick a valid Dropbox file path.');
-        throw err;
-      }
-
-      const THRESHOLD = 150 * 1024 * 1024;
-      try{
-        if(blob.size > THRESHOLD){
-          await dbxUploadChunked(blob, path);
-        }else{
-          await dbxUpload(path, blob);
-        }
-      }catch(err){
-        console.warn('Standard upload failed, retrying chunked', err);
-        await dbxUploadChunked(blob, path);
-      }
-      state.sync.lastSync = Date.now();
-      let quota=false;
-      try{
-        localStorage.setItem(storeKey, JSON.stringify(state));
-      }catch(err){
-        if(err?.name==='QuotaExceededError'){
-          quota=true;
-          console.warn('Storage quota exceeded, state not fully saved');
-        }
-      }
-      try{
-        localStorage.setItem(syncKey, JSON.stringify({accessToken: state.sync.accessToken, refreshToken: state.sync.refreshToken, provider: state.sync.provider, dropboxAccountId: state.sync.dropboxAccountId, dropboxRootPath: state.sync.dropboxRootPath}));
-      }catch(err){
-        if(err?.name==='QuotaExceededError'){
-          quota=true;
-          console.warn('Storage quota exceeded, sync token not saved');
-        }
-      }
-      if(quota){ setSyncStatus('Warning: storage full - data may not be saved'); }
-      if(!silent) setSyncStatus('Pushed at ' + new Date(state.sync.lastSync).toLocaleString());
+      path = normalizeDropboxPath((state.sync?.path) || '/data.json');
     }catch(err){
-      console.error('Push failed:', err);
-      if(err.status === 409){
-        alert('Sync conflict detected. The Dropbox file has been modified elsewhere.');
-        if(confirm('Pull the latest version and overwrite local data?')){
-          try{ await syncPull(); }
-          catch(e){ console.error('Auto-pull after conflict failed', e); }
-        }
-      }
-      if(!silent) handleSyncError(err);
+      alert(err.message + ' Please pick a valid Dropbox file path.');
       throw err;
     }
+
+    const run = async () => {
+      try{
+        if(!silent) setSyncStatus('Pushing to Dropbox...', 0);
+
+        if(!state.sync?.accessToken) {
+          throw new Error('No access token - please connect Dropbox first');
+        }
+
+        const json = JSON.stringify(state);
+        const blob = new Blob([json], {type:'application/json'});
+
+        const THRESHOLD = 150 * 1024 * 1024;
+        try{
+          if(blob.size > THRESHOLD){
+            await dbxUploadChunked(blob, path);
+          }else{
+            await dbxUpload(path, blob);
+          }
+        }catch(err){
+          console.warn('Standard upload failed, retrying chunked', err);
+          await dbxUploadChunked(blob, path);
+        }
+        state.sync.lastSync = Date.now();
+        let quota=false;
+        try{
+          localStorage.setItem(storeKey, JSON.stringify(state));
+        }catch(err){
+          if(err?.name==='QuotaExceededError'){
+            quota=true;
+            console.warn('Storage quota exceeded, state not fully saved');
+          }
+        }
+        try{
+          localStorage.setItem(syncKey, JSON.stringify({accessToken: state.sync.accessToken, refreshToken: state.sync.refreshToken, provider: state.sync.provider, dropboxAccountId: state.sync.dropboxAccountId, dropboxRootPath: state.sync.dropboxRootPath}));
+        }catch(err){
+          if(err?.name==='QuotaExceededError'){
+            quota=true;
+            console.warn('Storage quota exceeded, sync token not saved');
+          }
+        }
+        if(quota){ setSyncStatus('Warning: storage full - data may not be saved'); }
+        if(!silent) setSyncStatus('Pushed at ' + new Date(state.sync.lastSync).toLocaleString());
+      }catch(err){
+        console.error('Push failed:', err);
+        if(err.status === 409){
+          alert('Sync conflict detected. The Dropbox file has been modified elsewhere.');
+          if(confirm('Pull the latest version and overwrite local data?')){
+            try{ await syncPull(); }
+            catch(e){ console.error('Auto-pull after conflict failed', e); }
+          }
+        }
+        if(!silent) handleSyncError(err);
+        throw err;
+      }
+    };
+
+    const prev = uploadQueue.get(path) || Promise.resolve();
+    let queueEntry = prev.catch(() => {}).then(run);
+    queueEntry = queueEntry.finally(() => {
+      if(uploadQueue.get(path) === queueEntry){
+        uploadQueue.delete(path);
+      }
+    });
+    uploadQueue.set(path, queueEntry);
+    return queueEntry;
   }
 
   function openRestoreOptions(){
