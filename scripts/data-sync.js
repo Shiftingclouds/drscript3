@@ -63,7 +63,10 @@ function validate(data) {
 function diff(existing, incoming) {
   const diff = {};
   for (const [key, arr] of Object.entries(incoming)) {
-    const existingMap = new Map(existing[key].map(i => [i.id, i]));
+    if (!existing[key]) {
+      console.warn(`Key '${key}' not present in existing data; treating as empty array.`);
+    }
+    const existingMap = new Map((existing[key] || []).map(i => [i.id, i]));
     const incomingMap = new Map(arr.map(i => [i.id, i]));
     const added = [];
     const removed = [];
@@ -81,6 +84,10 @@ function diff(existing, incoming) {
       }
     }
     diff[key] = {added, removed, updated};
+  }
+  const extraKeys = Object.keys(existing).filter(k => !(k in incoming));
+  if (extraKeys.length) {
+    console.warn(`Extra keys in existing data ignored: ${extraKeys.join(', ')}`);
   }
   return diff;
 }
