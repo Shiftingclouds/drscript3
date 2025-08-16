@@ -4,7 +4,12 @@
 
   function openMediaDB() {
     return new Promise((resolve, reject) => {
-      const req = indexedDB.open('media-cache', 1);
+      if (!window.indexedDB) {
+        console.warn('IndexedDB not supported; media cache disabled');
+        resolve(null);
+        return;
+      }
+      const req = window.indexedDB.open('media-cache', 1);
       req.onupgradeneeded = e => {
         const db = e.target.result;
         const store = db.createObjectStore('media', { keyPath: 'sha256' });
@@ -95,6 +100,9 @@
       window.lazyMedia = lazy; // placeholders
 
       const db = await openMediaDB();
+      if (!db) {
+        return;
+      }
       const missing = [];
       for (const item of eager) {
         try {
