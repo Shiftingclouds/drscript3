@@ -5639,7 +5639,7 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
         const blob = new Blob([json], {type:'application/json'});
 
         const THRESHOLD = 150 * 1024 * 1024;
-        try{
+       try{
           if(blob.size > THRESHOLD){
             await dbxUploadChunked(blob, path);
           }else{
@@ -5649,12 +5649,6 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
           console.warn('Standard upload failed, retrying chunked', err);
           await dbxUploadChunked(blob, path);
         }
-      } catch (err) {
-        // Standard upload failed; retry with chunked upload
-        console.warn('Standard upload failed, retrying chunked', err);
-        await dbxUploadChunked(blob, path); // (blob, path)
-      }
-
       // Best-effort: create a timestamped backup copy in App Folder
       try {
         const root = (state.sync?.dropboxRootPath || BACKUP_ROOT_PATH) || '';
