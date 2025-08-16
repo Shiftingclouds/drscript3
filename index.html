@@ -5695,7 +5695,7 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
     };
 
     const prev = uploadQueue.get(path) || Promise.resolve();
-    let queueEntry = prev.catch(() => {}).then(run);
+    let queueEntry = prev.then(run, run);
     queueEntry = queueEntry.finally(() => {
       if(uploadQueue.get(path) === queueEntry){
         uploadQueue.delete(path);
