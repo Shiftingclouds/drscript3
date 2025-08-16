@@ -6335,22 +6335,43 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
     sizePortalCanvas();
     renderPortalScene();
   });
-  // Delay heavy initialization until the user enters the app
-  const enterBtn = qs('#enterApp');
-  if (!enterBtn) {
-    console.warn('Enter App button not found');
-  } else {
+ // Wait for DOM to be ready, then set up enter button
+  document.addEventListener('DOMContentLoaded', () => {
+    const enterBtn = qs('#enterApp');
+    if (!enterBtn) {
+      console.warn('Enter App button not found');
+      return;
+    }
+    
     console.log('Enter handler bound');
-    enterBtn.addEventListener('click', () => {
+    enterBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      console.log('Enter button clicked');
+      
       const launch = qs('#launchScene');
       const app = qs('.app');
-      qs('#portals-view').appendChild(portalCanvas);
-      sizePortalCanvas();
-      renderPortalScene();
+      const portalsView = qs('#portals-view');
+      
+      if (!app || !launch || !portalsView) {
+        console.error('Required elements not found');
+        return;
+      }
+      
+      // Move portal canvas to main app
+      if (portalCanvas && portalsView) {
+        portalsView.appendChild(portalCanvas);
+        sizePortalCanvas();
+        renderPortalScene();
+      }
+      
+      // Hide launch screen and show app
       launch.style.opacity = '0';
       enterBtn.style.opacity = '0';
       enterBtn.style.pointerEvents = 'none';
       app.style.display = 'grid';
+      
       requestAnimationFrame(() => {
         app.style.opacity = '1';
         // Use idle callback when available to keep the UI responsive
@@ -6360,13 +6381,13 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
           setupAutoSync();
         });
       });
+      
       setTimeout(() => {
         launch.style.display = 'none';
         enterBtn.style.display = 'none';
       }, 500);
     });
-  }
-
+  });
   console.log('DR Script Builder loaded successfully');
 </script>
 </body>
