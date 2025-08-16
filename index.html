@@ -5181,7 +5181,13 @@ portalCtx.restore(); // end circular clip
 
   async function listLatestBackup(){
     const root = state.sync?.dropboxRootPath || BACKUP_ROOT_PATH;
-    const path = `${root}/local-backups`;
+    let path;
+    try{
+      path = normalizeDropboxPath(`${root}/local-backups`);
+    }catch(err){
+      alert(err.message + ' Please pick a valid Dropbox file path.');
+      throw err;
+    }
     let res = await dropboxApiCall('files/list_folder', {body: JSON.stringify({path})});
     let data = await res.json();
     let entries = data.entries || [];
@@ -5202,7 +5208,13 @@ portalCtx.restore(); // end circular clip
 
   async function showBackupPicker(){
     const root = state.sync?.dropboxRootPath || BACKUP_ROOT_PATH;
-    const path = `${root}/local-backups`;
+    let path;
+    try{
+      path = normalizeDropboxPath(`${root}/local-backups`);
+    }catch(err){
+      alert(err.message + ' Please pick a valid Dropbox file path.');
+      throw err;
+    }
     let res = await dropboxApiCall('files/list_folder', {body: JSON.stringify({path})});
     let data = await res.json();
     let entries = data.entries || [];
@@ -5220,7 +5232,7 @@ portalCtx.restore(); // end circular clip
     return candidates[idx];
   }
 
-  async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwrite') {
+async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwrite') {
     if(!state.sync?.accessToken) {
       throw new Error('No access token available');
     }
@@ -5268,7 +5280,28 @@ portalCtx.restore(); // end circular clip
       throw error;
     }
 
-    return response;
+  return response;
+}
+
+  function normalizeDropboxPath(path){
+    if(typeof path !== 'string'){
+      throw new Error('Dropbox path must point to a file.');
+    }
+    path = path.trim();
+    if(!path || path === '.'){
+      throw new Error('Dropbox path must point to a file.');
+    }
+    if(!path.startsWith('/')) path = '/' + path;
+    path = path.replace(/^\/Apps\/[^/]+/, '');
+    if(!path.startsWith('/')) path = '/' + path;
+    if(path === '/' || path.endsWith('/')){
+      throw new Error('Dropbox path must point to a file.');
+    }
+    const name = path.split('/').pop();
+    if(!name || name === '.'){
+      throw new Error('Dropbox path must point to a file.');
+    }
+    return path;
   }
 
   function setSyncStatus(msg, progress){
@@ -5307,6 +5340,12 @@ portalCtx.restore(); // end circular clip
   }
   
   async function dbxUpload(path, blob, rev){
+    try{
+      path = normalizeDropboxPath(path);
+    }catch(err){
+      alert(err.message + ' Please pick a valid Dropbox file path.');
+      throw err;
+    }
     try {
       const mode = rev ? { '.tag': 'update', update: rev } : 'overwrite';
       const response = await dropboxContentApiCall('files/upload', blob, path, mode);
@@ -5323,6 +5362,12 @@ portalCtx.restore(); // end circular clip
   async function dbxUploadChunked(blob, path, rev){
     if(!state.sync?.accessToken) {
       throw new Error('No access token available');
+    }
+    try{
+      path = normalizeDropboxPath(path);
+    }catch(err){
+      alert(err.message + ' Please pick a valid Dropbox file path.');
+      throw err;
     }
     const CHUNK_SIZE = 8 * 1024 * 1024; // 8MB per chunk
     const totalSize = blob.size;
@@ -5397,6 +5442,12 @@ portalCtx.restore(); // end circular clip
     if(!state.sync?.accessToken) {
       throw new Error('No access token available');
     }
+    try{
+      path = normalizeDropboxPath(path);
+    }catch(err){
+      alert(err.message + ' Please pick a valid Dropbox file path.');
+      throw err;
+    }
 
     const url = 'https://content.dropboxapi.com/2/files/download';
     const headers = {
@@ -5469,9 +5520,21 @@ portalCtx.restore(); // end circular clip
   }
 
   async function dbxDownload(path){
+    try{
+      path = normalizeDropboxPath(path);
+    }catch(err){
+      alert(err.message + ' Please pick a valid Dropbox file path.');
+      throw err;
+    }
     const response = await dbxDownloadStream(path);
 
-    if(path === (state.sync?.path || '/data.json')){
+    let syncPath;
+    try{
+      syncPath = normalizeDropboxPath(state.sync?.path || '/data.json');
+    }catch{
+      syncPath = null;
+    }
+    if(syncPath && path === syncPath){
       const meta = response.headers.get('Dropbox-API-Result');
       if(meta){
         try{
@@ -5492,6 +5555,12 @@ portalCtx.restore(); // end circular clip
   async function dbxDownloadVerified(path, expectedHash){
     if(!state.sync?.accessToken){
       throw new Error('No access token available');
+    }
+    try{
+      path = normalizeDropboxPath(path);
+    }catch(err){
+      alert(err.message + ' Please pick a valid Dropbox file path.');
+      throw err;
     }
 
     const baseHeaders = {
@@ -5548,17 +5617,23 @@ portalCtx.restore(); // end circular clip
     return {blob, contentHash: metadata.content_hash};
   }
   
-  async function syncPush(silent = false){ 
+  async function syncPush(silent = false){
     try{
       if(!silent) setSyncStatus('Pushing to Dropbox...', 0);
-      
+
       if(!state.sync?.accessToken) {
         throw new Error('No access token - please connect Dropbox first');
       }
 
       const json = JSON.stringify(state);
       const blob = new Blob([json], {type:'application/json'});
-      const path = (state.sync?.path) || '/data.json';
+      let path;
+      try{
+        path = normalizeDropboxPath((state.sync?.path) || '/data.json');
+      }catch(err){
+        alert(err.message + ' Please pick a valid Dropbox file path.');
+        throw err;
+      }
 
       const THRESHOLD = 150 * 1024 * 1024;
       try{
@@ -5778,12 +5853,18 @@ portalCtx.restore(); // end circular clip
   async function syncPull(){
     try{
       setSyncStatus('Pulling from Dropbox...');
-      
+
       if(!state.sync?.accessToken) {
         throw new Error('No access token - please connect Dropbox first');
       }
-      
-      const path = (state.sync?.path) || '/data.json';
+
+      let path;
+      try{
+        path = normalizeDropboxPath((state.sync?.path) || '/data.json');
+      }catch(err){
+        alert(err.message + ' Please pick a valid Dropbox file path.');
+        throw err;
+      }
       const file = await dbxDownload(path);
       const rev = state.sync.rev;
       const text = await file.text();
