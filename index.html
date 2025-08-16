@@ -5339,7 +5339,7 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
     }
   }
   
-  async function dbxUpload(path, blob, rev){
+  async function dbxUpload(path, blob){
     try{
       path = normalizeDropboxPath(path);
     }catch(err){
@@ -5347,10 +5347,8 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
       throw err;
     }
     try {
-      const mode = rev ? { '.tag': 'update', update: rev } : 'overwrite';
-      const response = await dropboxContentApiCall('files/upload', blob, path, mode);
-      const metadata = await response.json();
-      state.sync.rev = metadata.rev;
+      const response = await dropboxContentApiCall('files/upload', blob, path, 'overwrite');
+      await response.json();
       return { success: true };
     } catch(err) {
       console.error('Upload failed:', err);
@@ -5359,7 +5357,7 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
     }
   }
 
-  async function dbxUploadChunked(blob, path, rev){
+  async function dbxUploadChunked(blob, path){
     if(!state.sync?.accessToken) {
       throw new Error('No access token available');
     }
@@ -5405,7 +5403,7 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
           ? 'https://content.dropboxapi.com/2/files/upload_session/finish'
           : 'https://content.dropboxapi.com/2/files/upload_session/append_v2';
         const apiArg = isLast
-          ? {cursor:{session_id:sessionId, offset}, commit:{path, mode: rev ? { '.tag':'update', update: rev } : 'overwrite'}}
+          ? {cursor:{session_id:sessionId, offset}, commit:{path, mode:'overwrite'}}
           : {cursor:{session_id:sessionId, offset}, close:false};
         headers = {
           'Authorization': `Bearer ${state.sync.accessToken}`,
@@ -5426,8 +5424,7 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
         offset += chunk.size;
         setSyncStatus(`Uploading ${path}`, offset/totalSize);
         if(isLast){
-          const metadata = await res.json();
-          state.sync.rev = metadata.rev;
+          await res.json();
         }
       }
       return {success:true};
@@ -5528,24 +5525,6 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
     }
     const response = await dbxDownloadStream(path);
 
-    let syncPath;
-    try{
-      syncPath = normalizeDropboxPath(state.sync?.path || '/data.json');
-    }catch{
-      syncPath = null;
-    }
-    if(syncPath && path === syncPath){
-      const meta = response.headers.get('Dropbox-API-Result');
-      if(meta){
-        try{
-          const metadata = JSON.parse(meta);
-          state.sync.rev = metadata.rev;
-        }catch(e){
-          console.warn('Failed to parse Dropbox-API-Result', e);
-        }
-      }
-    }
-
     return response.blob();
   }
 
@@ -5638,13 +5617,13 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
       const THRESHOLD = 150 * 1024 * 1024;
       try{
         if(blob.size > THRESHOLD){
-          await dbxUploadChunked(blob, path, state.sync.rev);
+          await dbxUploadChunked(blob, path);
         }else{
-          await dbxUpload(path, blob, state.sync.rev);
+          await dbxUpload(path, blob);
         }
       }catch(err){
         console.warn('Standard upload failed, retrying chunked', err);
-        await dbxUploadChunked(blob, path, state.sync.rev);
+        await dbxUploadChunked(blob, path);
       }
       state.sync.lastSync = Date.now();
       let quota=false;
@@ -5866,7 +5845,6 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
         throw err;
       }
       const file = await dbxDownload(path);
-      const rev = state.sync.rev;
       const text = await file.text();
       const incoming = JSON.parse(text);
       if(incoming?.appVersion && incoming.appVersion > APP_VERSION){
@@ -5875,8 +5853,6 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
         throw err;
       }
 
-      incoming.sync = incoming.sync || {};
-      incoming.sync.rev = rev;
       state = incoming;
 
       const now = new Date().toISOString();
