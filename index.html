@@ -5717,7 +5717,10 @@ portalCtx.restore(); // end circular clip
       save();
       renderAll();
       restoreSnapshot = null;
-      qs('#undoRestore')?.style.display='none';
+      const undoBtn = qs('#undoRestore');
+      if(undoBtn){
+        undoBtn.style.display = 'none';
+      }
       setSyncStatus('Restore undone');
     }catch(err){
       console.error('Undo restore failed', err);
