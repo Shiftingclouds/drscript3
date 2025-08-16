@@ -5183,12 +5183,18 @@ portalCtx.restore(); // end circular clip
     const root = state.sync?.dropboxRootPath || BACKUP_ROOT_PATH;
     let path;
     try{
-      path = normalizeDropboxPath(`${root}/local-backups`);
+      path = normalizeDropboxPath(`${root}/backups`);
     }catch(err){
       alert(err.message + ' Please pick a valid Dropbox file path.');
       throw err;
     }
-    let res = await dropboxApiCall('files/list_folder', {body: JSON.stringify({path})});
+    let res;
+    try{
+      res = await dropboxApiCall('files/list_folder', {body: JSON.stringify({path})});
+    }catch(err){
+      if(err.message?.includes('path/not_found')) return null;
+      throw err;
+    }
     let data = await res.json();
     let entries = data.entries || [];
     while(data.has_more){
@@ -5210,7 +5216,7 @@ portalCtx.restore(); // end circular clip
     const root = state.sync?.dropboxRootPath || BACKUP_ROOT_PATH;
     let path;
     try{
-      path = normalizeDropboxPath(`${root}/local-backups`);
+      path = normalizeDropboxPath(`${root}/backups`);
     }catch(err){
       alert(err.message + ' Please pick a valid Dropbox file path.');
       throw err;
@@ -5233,33 +5239,16 @@ portalCtx.restore(); // end circular clip
   }
 
   async function downloadLatestCloudBackup(){
+    const latest = await listLatestBackup();
+    if(!latest) return null;
     const root = state.sync?.dropboxRootPath || BACKUP_ROOT_PATH;
-    let base;
+    let filePath;
     try{
-      base = normalizeDropboxPath(`${root}/backups`);
+      filePath = normalizeDropboxPath(`${root}/backups/${latest.name}/data.json`);
     }catch(err){
       alert(err.message + ' Please pick a valid Dropbox file path.');
       throw err;
     }
-    let res;
-    try{
-      res = await dropboxApiCall('files/list_folder', {body: JSON.stringify({path: base})});
-    }catch(err){
-      if(err.message?.includes('path/not_found')) return null;
-      throw err;
-    }
-    let data = await res.json();
-    let entries = data.entries || [];
-    while(data.has_more){
-      res = await dropboxApiCall('files/list_folder/continue', {body: JSON.stringify({cursor: data.cursor})});
-      data = await res.json();
-      entries = entries.concat(data.entries || []);
-    }
-    const folders = entries.filter(e=>e['.tag']==='folder');
-    if(folders.length===0) return null;
-    folders.sort((a,b)=>b.name.localeCompare(a.name));
-    const latest = folders[0];
-    const filePath = normalizeDropboxPath(`${base}/${latest.name}/data.json`);
     const blob = await dbxDownload(filePath);
     return {blob, path: filePath};
   }
@@ -5656,6 +5645,29 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
       }catch(err){
         console.warn('Standard upload failed, retrying chunked', err);
         await dbxUploadChunked(blob, path);
+      }
+
+      // create a timestamped backup copy
+      try{
+        const root = state.sync?.dropboxRootPath || BACKUP_ROOT_PATH;
+        const timestamp = new Date().toISOString();
+        let backupFile;
+        try{
+          backupFile = normalizeDropboxPath(`${root}/backups/${timestamp}/data.json`);
+        }catch(err){
+          alert(err.message + ' Please pick a valid Dropbox file path.');
+          throw err;
+        }
+        const backupDir = backupFile.split('/').slice(0, -1).join('/');
+        try{ await dropboxApiCall('files/create_folder_v2', {body: JSON.stringify({path: backupDir})}); }
+        catch(e){ /* ignore errors if folder exists */ }
+        if(blob.size > THRESHOLD){
+          await dbxUploadChunked(blob, backupFile);
+        }else{
+          await dbxUpload(backupFile, blob);
+        }
+      }catch(err){
+        console.warn('Backup upload failed:', err);
       }
       state.sync.lastSync = Date.now();
       let quota=false;
