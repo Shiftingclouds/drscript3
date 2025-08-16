@@ -1977,8 +1977,8 @@ const loadPromises = [];
       p.displayRadius = r;
       const orbitRadius = r * 2;
       const angle = Math.random() * Math.PI * 2;
-      const cx = Math.random() * portalCanvas.width;
-      const cy = Math.random() * portalCanvas.height;
+      const cx = Math.random() * (portalCanvas.width  - 2 * orbitRadius) + orbitRadius;
+      const cy = Math.random() * (portalCanvas.height - 2 * orbitRadius) + orbitRadius;
       const obj = {
         cx,
         cy,
