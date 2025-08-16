@@ -5692,7 +5692,6 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
         }
       }
 
-        }
         try{
           localStorage.setItem(syncKey, JSON.stringify({accessToken: state.sync.accessToken, refreshToken: state.sync.refreshToken, provider: state.sync.provider, dropboxAccountId: state.sync.dropboxAccountId, dropboxRootPath: state.sync.dropboxRootPath}));
         }catch(err){
