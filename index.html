@@ -1476,16 +1476,16 @@ button::-moz-focus-inner{
       state.libraries=[{id:libId, name:'Main', scenarios:state.scenarios||[], collections:state.collections||[]}];
     }
     state.libraries.forEach(lib=>{
-      lib.scenarios ||= [];
-      lib.collections ||= [];
+      if(!lib.scenarios) lib.scenarios = [];
+      if(!lib.collections) lib.collections = [];
       lib.scenarios.forEach(sc=>{
-        sc.category ??= [];
-        sc.tags ??= [];
-        sc.collectionId ??= null;
+        if(sc.category == null) sc.category = [];
+        if(sc.tags == null) sc.tags = [];
+        if(sc.collectionId == null) sc.collectionId = null;
         if(sc.location && !sc.locations) sc.locations=[sc.location];
-        sc.locations ??= [];
-        sc.characters ??= [];
-        sc.imageIds ??= [];
+        if(sc.locations == null) sc.locations = [];
+        if(sc.characters == null) sc.characters = [];
+        if(sc.imageIds == null) sc.imageIds = [];
         delete sc.location;
       });
     });
