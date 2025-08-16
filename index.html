@@ -721,7 +721,7 @@ button::-moz-focus-inner{
         <button class="btn" id="testConnection">Test Connection</button>
         <button class="btn" id="dbxDisconnect">Disconnect</button>
       </div>
-      <div class="field"><label class="label">Sync File Path (in your Dropbox)</label><input id="dbxPath" class="text" value="/Apps/DR Script Builder/data.json"/></div>
+      <div class="field"><label class="label">Sync File Path (in your Dropbox)</label><input id="dbxPath" class="text" value="/data.json"/></div>
       <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap" class="field">
         <label style="display:flex; gap:8px; align-items:center"><input type="checkbox" id="autoSyncToggle"/> Auto Sync</label>
         <label style="display:flex; gap:8px; align-items:center">Every <input id="autoSyncMins" class="text" style="width:80px" value="5"/> min</label>
@@ -1463,7 +1463,7 @@ button::-moz-focus-inner{
       refreshToken:'',
       dropboxAccountId:'',
       dropboxRootPath:BACKUP_ROOT_PATH,
-      path:'/Apps/DR Script Builder/data.json',
+      path:'/data.json',
       auto:false,
       intervalMins:5,
       lastSync:0
@@ -1511,7 +1511,7 @@ button::-moz-focus-inner{
   if(!state.projections) state.projections=[];
   if(!state.astralGoals) state.astralGoals=[];
   if(!state.astralTechniques) state.astralTechniques=[];
-  if(!state.sync) state.sync={provider:null, appKey:'', accessToken:'', refreshToken:'', dropboxAccountId:'', dropboxRootPath:BACKUP_ROOT_PATH, path:'/Apps/DR Script Builder/data.json', auto:false, intervalMins:5, lastSync:0};
+  if(!state.sync) state.sync={provider:null, appKey:'', accessToken:'', refreshToken:'', dropboxAccountId:'', dropboxRootPath:BACKUP_ROOT_PATH, path:'/data.json', auto:false, intervalMins:5, lastSync:0};
   state.sync.dropboxAccountId ||= '';
   state.sync.dropboxRootPath ||= BACKUP_ROOT_PATH;
   state.sync.refreshToken ||= '';
@@ -5471,7 +5471,7 @@ portalCtx.restore(); // end circular clip
   async function dbxDownload(path){
     const response = await dbxDownloadStream(path);
 
-    if(path === (state.sync?.path || '/Apps/DR Script Builder/data.json')){
+    if(path === (state.sync?.path || '/data.json')){
       const meta = response.headers.get('Dropbox-API-Result');
       if(meta){
         try{
@@ -5558,7 +5558,7 @@ portalCtx.restore(); // end circular clip
 
       const json = JSON.stringify(state);
       const blob = new Blob([json], {type:'application/json'});
-      const path = (state.sync?.path) || '/Apps/DR Script Builder/data.json';
+      const path = (state.sync?.path) || '/data.json';
 
       const THRESHOLD = 150 * 1024 * 1024;
       try{
@@ -5783,7 +5783,7 @@ portalCtx.restore(); // end circular clip
         throw new Error('No access token - please connect Dropbox first');
       }
       
-      const path = (state.sync?.path) || '/Apps/DR Script Builder/data.json';
+      const path = (state.sync?.path) || '/data.json';
       const file = await dbxDownload(path);
       const rev = state.sync.rev;
       const text = await file.text();
@@ -5950,7 +5950,7 @@ portalCtx.restore(); // end circular clip
     const minsEl=qs('#autoSyncMins'); 
     if(appKeyEl) appKeyEl.value=s.appKey||''; 
     if(tokEl) tokEl.value=s.accessToken||''; 
-    if(pathEl) pathEl.value=s.path||'/Apps/DR Script Builder/data.json'; 
+    if(pathEl) pathEl.value=s.path||'/data.json';
     if(autoEl) autoEl.checked=!!s.auto; 
     if(minsEl) minsEl.value=String(s.intervalMins||5); 
     setSyncStatus(s.accessToken? 'Connected' : 'Not connected'); 
@@ -5977,7 +5977,7 @@ portalCtx.restore(); // end circular clip
       state.sync.refreshToken='';
       state.sync.provider='dropbox';
       state.sync.appKey=(qs('#dbxAppKey')?.value||'').trim();
-      state.sync.path=(qs('#dbxPath')?.value||'/Apps/DR Script Builder/data.json');
+      state.sync.path=((qs('#dbxPath')?.value||'').trim()||'/data.json');
       save(); 
       
       testDropboxConnection();
@@ -5990,7 +5990,7 @@ portalCtx.restore(); // end circular clip
       setSyncStatus('Disconnected');
     });
     qs('#dbxPath')?.addEventListener('change', e=>{ 
-      state.sync.path=e.target.value; 
+      state.sync.path = e.target.value.trim() || '/data.json';
       save(); 
     });
     qs('#autoSyncToggle')?.addEventListener('change', e=>{ 
