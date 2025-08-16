@@ -263,7 +263,7 @@
   .viz-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr)); gap:12px}
   .viz-thumb{position:relative; width:100%; padding-top:100%; border:1px solid var(--border); border-radius:14px; background:var(--bg-0) center/cover no-repeat; cursor:pointer; overflow:hidden}
   .viz-thumb .cap{position:absolute; inset:auto 0 0 0; padding:6px 8px; background:linear-gradient(180deg, transparent, rgba(0,0,0,.55)); font-size:12px}
-  #launchScene{position:fixed; inset:0; background:rgba(10,14,22,0.4); transition:opacity .5s; z-index:2}
+  #launchScene{position:fixed; inset:0; background:rgba(10,14,22,0.4); transition:opacity .5s; z-index:2; pointer-events:none}
 /* Launch scene canvas with subtle orb glow */
 #launchScene canvas{
   position:absolute;
@@ -277,12 +277,14 @@
           drop-shadow(0 2px 4px rgba(0,0,0,.6));
 }
 
+#starfieldContainer{pointer-events:none}
 #starfieldContainer canvas{
   position:absolute;
   top:0;
   left:0;
   width:100%;
   height:100%;
+  pointer-events:none;
 }
 
 /* Portal canvas inside main app view */
@@ -366,7 +368,8 @@ button::-moz-focus-inner{
 <div id="starfieldContainer" style="position:fixed; inset:0; z-index:0;">
   <canvas id="starfieldCanvas"></canvas>
 </div>
-<div id="launchScene"><canvas id="portalCanvas"></canvas><button id="enterApp"><span class="enter-label">Enter Tracking App</span></button></div>
+<div id="launchScene"><canvas id="portalCanvas"></canvas></div>
+<button id="enterApp"><span class="enter-label">Enter Tracking App</span></button>
 <div class="app" style="display:none">
   <div id="headerOverflow" class="header-overflow" style="position:absolute; top:16px; right:16px; z-index:10;">
     <button class="btn small" id="qaRestore">Sync From Dropbox</button>
@@ -6170,6 +6173,8 @@ portalCtx.restore(); // end circular clip
       sizePortalCanvas();
       renderPortalScene();
       launch.style.opacity = '0';
+      enterBtn.style.opacity = '0';
+      enterBtn.style.pointerEvents = 'none';
       app.style.display = 'grid';
       requestAnimationFrame(() => {
         app.style.opacity = '1';
@@ -6180,7 +6185,10 @@ portalCtx.restore(); // end circular clip
           setupAutoSync();
         });
       });
-      setTimeout(() => launch.style.display = 'none', 500);
+      setTimeout(() => {
+        launch.style.display = 'none';
+        enterBtn.style.display = 'none';
+      }, 500);
     });
   }
 
