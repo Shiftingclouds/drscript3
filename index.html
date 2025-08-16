@@ -6335,14 +6335,8 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
     renderPortalScene();
   });
  // Wait for DOM to be ready, then set up enter button
-  document.addEventListener('DOMContentLoaded', () => {
-    const enterBtn = qs('#enterApp');
-    if (!enterBtn) {
-      console.warn('Enter App button not found');
-      return;
-    }
-    
-    console.log('Enter handler bound');
+  const enterBtn = qs('#enterApp');
+  if (enterBtn) {
     enterBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -6386,7 +6380,9 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
         enterBtn.style.display = 'none';
       }, 500);
     });
-  });
+  } else {
+    console.warn('Enter App button not found');
+  }
   console.log('DR Script Builder loaded successfully');
 </script>
 </body>
