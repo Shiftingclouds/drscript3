@@ -1443,6 +1443,12 @@ button::-moz-focus-inner{
   let restoreSnapshot = null;
   let conflictLogData = [];
   const uploadQueue = new Map();
+  let lastSyncHash = '';
+  let pendingSyncHash = null;
+  let syncPendingPromise = null;
+  let syncResolve = null;
+  let syncReject = null;
+  let pendingSilent = true;
   if(state && !localStorage.getItem(storeKey)) save();
   if(!state) state={
     portals:[],
@@ -1517,6 +1523,7 @@ button::-moz-focus-inner{
   state.sync.dropboxAccountId ||= '';
   state.sync.dropboxRootPath ||= BACKUP_ROOT_PATH;
   state.sync.refreshToken ||= '';
+  lastSyncHash = computeStateHash();
 
   // ===== Utils =====
   const qs = (q)=>document.querySelector(q);
@@ -5431,7 +5438,24 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
       try{ action(); }catch(e){ console.error('CTA action failed', e); }
     }
   }
-  
+
+  function debounce(fn, wait){
+    let t;
+    return (...args) => {
+      clearTimeout(t);
+      t = setTimeout(() => fn(...args), wait);
+    };
+  }
+
+  function computeStateHash(){
+    return JSON.stringify(state, (key, value) => {
+      if(key === 'lastSync' || key === 'syncStatus' || key === 'logs'){
+        return undefined;
+      }
+      return value;
+    });
+  }
+
   async function dbxUpload(path, blob){
     try{
       path = normalizeDropboxPath(path);
@@ -5738,7 +5762,7 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
     return {blob, contentHash: metadata.content_hash};
   }
   
-  async function syncPush(silent = false){
+  async function performSyncPush(silent = false){
     let path;
     try{
       path = normalizeDropboxPath((state.sync?.path) || '/data.json');
@@ -5845,6 +5869,43 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
     });
     uploadQueue.set(path, queueEntry);
     return queueEntry;
+  }
+
+  const debouncedSyncPush = debounce(() => {
+    const hashToPush = pendingSyncHash;
+    const silent = pendingSilent;
+    performSyncPush(silent)
+      .then(res => {
+        lastSyncHash = hashToPush;
+        pendingSyncHash = null;
+        syncResolve && syncResolve(res);
+      })
+      .catch(err => {
+        syncReject && syncReject(err);
+      })
+      .finally(() => {
+        syncPendingPromise = null;
+        syncResolve = null;
+        syncReject = null;
+        pendingSilent = true;
+      });
+  }, 4000);
+
+  function syncPush(silent = false){
+    const currentHash = computeStateHash();
+    if(currentHash === lastSyncHash){
+      return Promise.resolve();
+    }
+    pendingSyncHash = currentHash;
+    pendingSilent = pendingSilent && silent;
+    if(!syncPendingPromise){
+      syncPendingPromise = new Promise((resolve, reject) => {
+        syncResolve = resolve;
+        syncReject = reject;
+      });
+    }
+    debouncedSyncPush();
+    return syncPendingPromise;
   }
 
   function openRestoreOptions(){
