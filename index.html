@@ -159,6 +159,7 @@
   .pick-gallery{display:flex; flex-wrap:wrap; gap:8px; max-height:50vh; overflow:auto}
   .pick-thumb{width:80px; height:80px; background:var(--bg-0) center/cover no-repeat; border:2px solid transparent; border-radius:8px; cursor:pointer}
   .pick-thumb.selected{border-color:var(--aurora-2)}
+  .missing{display:grid; place-items:center; background:var(--bg-0); color:var(--muted); font-size:12px}
   .collection-list{display:grid; gap:12px; margin-top:10px}
   .collection-item{background:var(--bg-1); border:1px solid var(--border); border-radius:14px; padding:14px; display:flex; justify-content:space-between; align-items:center}
   .collection-actions{display:flex; gap:6px}
@@ -2868,36 +2869,48 @@ portalCtx.restore(); // end circular clip
     'What is the main conflict?',
     'How do the characters feel?'
   ];
-  function renderScenarioImages(){
+  async function renderScenarioImages(){
     if(!scenarioImageStrip) return;
     scenarioImageStrip.innerHTML='';
-    scImageIds.forEach(id=>{
+    for(const id of scImageIds){
       const img=(state.images||[]).find(i=>i.id===id);
-      if(!img) return;
+      if(!img) continue;
+      const url=await fetchMediaUrl(img);
       const th=document.createElement('div');
       th.className='image-thumb';
-      fetchMediaUrl(img).then(url=>{ th.style.backgroundImage=`url(${url})`; });
+      if(url){
+        th.style.backgroundImage=`url(${url})`;
+        th.onclick=()=> openLightbox(img.path||img.src, img.name||'', img.id, 'image');
+      }else{
+        th.classList.add('missing');
+        th.textContent='Missing';
+      }
       const rm=document.createElement('button');
       rm.className='remove';
       rm.textContent='×';
       rm.onclick=e=>{ e.stopPropagation(); scImageIds=scImageIds.filter(x=>x!==id); renderScenarioImages(); saveScenarioDraft(); };
       th.appendChild(rm);
-      th.onclick=()=> openLightbox(img.path||img.src, img.name||'', img.id, 'image');
       scenarioImageStrip.appendChild(th);
-    });
+    }
   }
-  function renderScenarioImgGallery(){
+  async function renderScenarioImgGallery(){
     if(!scenarioImgGallery) return;
     scenarioImgGallery.innerHTML='';
-    (state.images||[]).forEach(img=>{
+    for(const img of state.images||[]){
+      const url=await fetchMediaUrl(img);
       const th=document.createElement('div');
       th.className='pick-thumb';
       th.dataset.id=img.id;
-      fetchMediaUrl(img).then(url=>{ th.style.backgroundImage=`url(${url})`; });
+      if(url){
+        th.style.backgroundImage=`url(${url})`;
+      }else{
+        th.classList.add('missing');
+        th.textContent='Missing';
+      }
       if(scImageIds.includes(img.id)) th.classList.add('selected');
       th.onclick=()=>{ const id=img.id; if(scImageIds.includes(id)){ scImageIds=scImageIds.filter(x=>x!==id); th.classList.remove('selected'); } else { scImageIds.push(id); th.classList.add('selected'); } saveScenarioDraft(); };
       scenarioImgGallery.appendChild(th);
-    });
+    }
   }
   scenarioAddImageBtn?.addEventListener('click',()=>{ renderScenarioImgGallery(); scenarioImgPicker.classList.add('open'); });
   scenarioImgCancel?.addEventListener('click',()=> closeModal(scenarioImgPicker));
@@ -3250,7 +3263,7 @@ portalCtx.restore(); // end circular clip
     renderScenarios(items);
   }
 
-  function renderScenarios(items){
+  async function renderScenarios(items){
     const lib=getActiveLibrary();
     scenarioTagBar.innerHTML='';
     const allTags=Array.from(new Set((lib.scenarios||[]).flatMap(s=>s.tags||[]))).sort((a,b)=>a.localeCompare(b));
@@ -3296,7 +3309,7 @@ portalCtx.restore(); // end circular clip
       return (ia===-1?order.length:ia)-(ib===-1?order.length:ib);
     });
     let current=null;
-    filtered.forEach(sc=>{
+    for(const sc of filtered){
       const cid=sc.collectionId||'';
       if(cid!==current){
         current=cid;
@@ -3337,15 +3350,21 @@ portalCtx.restore(); // end circular clip
       if(sc.imageIds && sc.imageIds.length){
         const strip=document.createElement('div');
         strip.className='image-strip';
-        sc.imageIds.forEach(id=>{
+        for(const id of sc.imageIds){
           const img=(state.images||[]).find(i=>i.id===id);
-          if(!img) return;
+          if(!img) continue;
+          const url=await fetchMediaUrl(img);
           const th=document.createElement('div');
           th.className='image-thumb';
-          fetchMediaUrl(img).then(url=>{ th.style.backgroundImage=`url(${url})`; });
-          th.onclick=e=>{ e.stopPropagation(); openLightbox(img.path||img.src, img.name||'', img.id, 'image'); };
+          if(url){
+            th.style.backgroundImage=`url(${url})`;
+            th.onclick=e=>{ e.stopPropagation(); openLightbox(img.path||img.src, img.name||'', img.id, 'image'); };
+          }else{
+            th.classList.add('missing');
+            th.textContent='Missing';
+          }
           strip.appendChild(th);
-        });
+        }
         card.appendChild(strip);
       }
       const tags=document.createElement('div');
@@ -3407,7 +3426,7 @@ portalCtx.restore(); // end circular clip
       card.appendChild(tags);
       card.appendChild(actions);
       scenarioList.appendChild(card);
-    });
+    }
   }
 
   qs('#scenarioCreate')?.addEventListener('click',()=>{
@@ -3929,7 +3948,7 @@ portalCtx.restore(); // end circular clip
   const mediaCache=new Map();
   async function fetchMediaUrl(item){
     const path = item?.path || item?.src || '';
-    if(!path || item?.missing) return '';
+    if(!path || item?.missing) return null;
     if(mediaCache.has(path)) return mediaCache.get(path);
     if(path.startsWith('http') || path.startsWith('data:')){
       mediaCache.set(path, path);
@@ -3944,8 +3963,11 @@ portalCtx.restore(); // end circular clip
     }catch(err){
       console.error('Failed to load media', err);
     }
-    if(item) item.missing = true;
-    return '';
+    if(item){
+      item.missing = true;
+      console.warn('Skipping media item', {id:item.id, name:item.name, path});
+    }
+    return null;
   }
 
   async function openLightbox(path, meta, mediaId, type){
@@ -3953,6 +3975,15 @@ portalCtx.restore(); // end circular clip
     currentLightboxMediaId=mediaId;
     currentLightboxType=type;
     const src=await fetchMediaUrl({id:mediaId, name:meta, path});
+    if(!src){
+      lbVideo.pause();
+      lbVideo.style.display='none';
+      lbImg.style.display='none';
+      lbMeta.textContent = meta ? `${meta} (Missing)` : 'Missing';
+      if(lbDelete) lbDelete.style.display='none';
+      lightbox.classList.add('open');
+      return;
+    }
     if(type==='video'){
       lbImg.style.display='none';
       lbVideo.style.display='block';
@@ -4029,7 +4060,7 @@ portalCtx.restore(); // end circular clip
     return derived;
   }
 
- function renderVisualizers(){
+ async function renderVisualizers(){
   if(!vizContainer) return;
 
   // Rebuild the portal filter
@@ -4106,9 +4137,9 @@ portalCtx.restore(); // end circular clip
   vizContainer.innerHTML = '';
   let total = 0;
   const keys = [...byPortal.keys()].sort((a,b) => a - b);
-  keys.forEach(key => {
+  for(const key of keys){
     const items = byPortal.get(key) || [];
-    if (!items.length) return;
+    if (!items.length) continue;
     total += items.length;
 
     const grp = document.createElement('div');
@@ -4119,50 +4150,63 @@ portalCtx.restore(); // end circular clip
     const grid = document.createElement('div');
     grid.className = 'viz-grid';
 
-    items.forEach(it => {
+    for(const it of items){
       const th = document.createElement('div');
       th.className = 'viz-thumb';
 
       if (it.type === 'video' || it.video) {
-        // Support <video> and <iframe> (e.g., YouTube)
-        let media;
         if (it.tag === 'iframe') {
-          media = document.createElement('iframe');
+          const media = document.createElement('iframe');
           media.src = it.src;
           media.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
           media.style.border = '0';
           th.style.cursor = 'default';
-          th.onclick = () => window.open(it.src, '_blank'); // keep current UX for iframes
+          th.onclick = () => window.open(it.src, '_blank');
+          media.style.position = 'absolute';
+          media.style.inset = '0';
+          media.style.width = '100%';
+          media.style.height = '100%';
+          media.style.objectFit = 'cover';
+          th.appendChild(media);
         } else {
-          media = document.createElement('video');
-          media.controls = true;
-          media.muted = true;
-          if (it.poster) media.poster = it.poster;
-          fetchMediaUrl(it).then(url => { media.src = url; });
-          // Use lightbox for local videos
+          const url = await fetchMediaUrl(it);
+          if(url){
+            const media = document.createElement('video');
+            media.controls = true;
+            media.muted = true;
+            if (it.poster) media.poster = it.poster;
+            media.src = url;
+            media.style.position = 'absolute';
+            media.style.inset = '0';
+            media.style.width = '100%';
+            media.style.height = '100%';
+            media.style.objectFit = 'cover';
+            th.appendChild(media);
+            th.onclick = () => openLightbox(
+              it.path || it.src,
+              `${title}${it.tags?.length ? ' • ' + it.tags.join(', ') : ''}`,
+              it.derived ? null : it.id,
+              'video'
+            );
+          }else{
+            th.classList.add('missing');
+            th.textContent='Missing';
+          }
+        }
+      } else {
+        const url = await fetchMediaUrl(it);
+        if(url){
+          th.style.backgroundImage = `url(${url})`;
           th.onclick = () => openLightbox(
             it.path || it.src,
             `${title}${it.tags?.length ? ' • ' + it.tags.join(', ') : ''}`,
             it.derived ? null : it.id,
-            'video'
+            'image'
           );
+        }else{
+          th.classList.add('missing');
+          th.textContent='Missing';
         }
-        media.style.position = 'absolute';
-        media.style.inset = '0';
-        media.style.width = '100%';
-        media.style.height = '100%';
-        media.style.objectFit = 'cover';
-        th.appendChild(media);
-      } else {
-        fetchMediaUrl(it).then(url => {
-          th.style.backgroundImage = `url(${url})`;
-        });
-        th.onclick = () => openLightbox(
-          it.path || it.src,
-          `${title}${it.tags?.length ? ' • ' + it.tags.join(', ') : ''}`,
-          it.derived ? null : it.id,
-          'image'
-        );
       }
 
       const cap = document.createElement('div');
@@ -4174,11 +4218,11 @@ portalCtx.restore(); // end circular clip
       th.appendChild(cap);
 
       grid.appendChild(th);
-    });
+    }
 
     grp.appendChild(grid);
     vizContainer.appendChild(grp);
-  });
+  }
 
   vizEmpty.style.display = total ? 'none' : 'grid';
 }
@@ -5598,7 +5642,7 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
       if(item){
         console.warn('Invalid Dropbox path for media', {id:item.id, name:item.name, path});
         item.missing = true;
-        return '';
+        return null;
       }
       alert(err.message + ' Please pick a valid Dropbox file path.');
       throw err;
