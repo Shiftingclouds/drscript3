@@ -1335,6 +1335,19 @@ button::-moz-focus-inner{
   </div>
 </div>
 
+<!-- Errors Drawer -->
+<div class="drawer" id="errorDrawer" aria-hidden="true">
+  <div style="display:flex; flex-direction:column; height:100%">
+    <div style="display:flex; align-items:center; justify-content:space-between; padding:16px">
+      <strong>Errors</strong>
+      <button class="btn small" id="errorClose">Close</button>
+    </div>
+    <div style="flex:1; overflow:auto; padding:16px">
+      <ul id="errorList" style="list-style:disc; padding-left:20px;"></ul>
+    </div>
+  </div>
+</div>
+
 <script>
   // ===== State =====
   const storeKey='drsb-data-v2';
@@ -5404,11 +5417,21 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
     return '/' + segments.join('/');
   }
 
-  function setSyncStatus(msg, progress){
+  function setSyncStatus(msg, detail=''){
     const el=qs('#syncStatus');
-    const pct = typeof progress === 'number' ? ` (${Math.round(progress*100)}%)` : '';
-    if(el) el.textContent = 'Status: ' + msg + pct;
-    console.log('Sync status:', msg, progress);
+    let pct='';
+    let extra='';
+    if(typeof detail === 'number'){
+      pct = ` (${Math.round(detail*100)}%)`;
+    }else if(detail){
+      extra = ' ' + detail;
+    }
+    if(el) el.textContent = 'Status: ' + msg + extra + pct;
+    if(detail !== '' && detail !== undefined){
+      console.log('Sync status:', msg, detail);
+    }else{
+      console.log('Sync status:', msg);
+    }
   }
 
   function handleSyncError(err){
@@ -5958,6 +5981,37 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
     if(restoreFileInput){ restoreFileInput.style.display='inline-block'; }
   });
 
+  const errorDrawer = qs('#errorDrawer');
+  const errorList = qs('#errorList');
+  const errorClose = qs('#errorClose');
+  let errorOverlay = null;
+
+  function closeErrorDrawer(){
+    errorDrawer?.classList.remove('open');
+    errorDrawer?.setAttribute('aria-hidden','true');
+    errorOverlay?.remove();
+    errorOverlay=null;
+  }
+
+  function openErrorDrawer(items){
+    if(!errorDrawer || !errorList) return;
+    errorList.innerHTML='';
+    items.forEach(path=>{
+      const li=document.createElement('li');
+      li.textContent = path;
+      errorList.appendChild(li);
+    });
+    errorOverlay=document.createElement('div');
+    errorOverlay.className='drawer-overlay';
+    errorOverlay.setAttribute('aria-hidden','true');
+    errorOverlay.addEventListener('click', closeErrorDrawer);
+    document.body.appendChild(errorOverlay);
+    errorDrawer.classList.add('open');
+    errorDrawer.setAttribute('aria-hidden','false');
+  }
+
+  errorClose?.addEventListener('click', closeErrorDrawer);
+
   async function startDropboxRestore(opts){
     try{
       restoreSnapshot = JSON.stringify(state);
@@ -5994,7 +6048,10 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
         await Promise.all(Array.from({length:4}, ()=>worker()));
         const elapsed = performance.now() - startTime;
         console.log('Restore diagnostics',{timeMs:elapsed,totalBytes:completedBytes,items:itemsImported,conflicts:mediaHashMismatches.length,skippedMedia:skippedMedia.length});
-        if(skippedMedia.length){ console.warn('Skipped media files:', skippedMedia); }
+        if(skippedMedia.length){
+          console.warn('Skipped media files:', skippedMedia);
+          openErrorDrawer(skippedMedia);
+        }
       }
       if(opts.appState || opts.scenarios || opts.settings){
         await syncPull();
