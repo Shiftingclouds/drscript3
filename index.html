@@ -1982,10 +1982,35 @@ if (
   }
 
   window.addEventListener('resize',initStarfield);
-  window.addEventListener('deviceorientation',e=>{
-    tiltX=(e.gamma||0)/45;
-    tiltY=(e.beta||0)/45;
-  });
+
+  function handleDeviceOrientation(e){
+    tiltX = (e.gamma || 0) / 45;
+    tiltY = (e.beta || 0) / 45;
+  }
+
+  if (window.DeviceOrientationEvent && ('ontouchstart' in window || navigator.maxTouchPoints > 0)) {
+    const initOrientation = () => {
+      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission().then(state => {
+          if (state === 'granted') {
+            window.addEventListener('deviceorientation', handleDeviceOrientation);
+          }
+        }).catch(() => {
+          // Permission denied or unavailable; rely on drag controls.
+        });
+      } else {
+        window.addEventListener('deviceorientation', handleDeviceOrientation);
+      }
+    };
+
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+      const requestOnGesture = () => { initOrientation(); };
+      window.addEventListener('click', requestOnGesture, { once: true });
+      window.addEventListener('touchend', requestOnGesture, { once: true });
+    } else {
+      initOrientation();
+    }
+  }
 
   window.addEventListener('resize',sizePortalCanvas);
 
