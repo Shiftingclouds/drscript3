@@ -1570,7 +1570,28 @@ button::-moz-focus-inner{
     });
   }
 
+  function flagInvalidMediaPaths(){
+    const lists=[];
+    if(Array.isArray(state.media)) lists.push(state.media);
+    if(Array.isArray(state.images)) lists.push(state.images);
+    if(Array.isArray(state.videos)) lists.push(state.videos);
+    lists.forEach(list=>{
+      list.forEach(item=>{
+        if(!item) return;
+        try{
+          if(item.path) item.path = normalizeDropboxPath(item.path);
+          else throw new Error('Dropbox path must point to a file.');
+          item.missing = false;
+        }catch(err){
+          console.warn('Invalid Dropbox path for media', {id:item.id, name:item.name, path:item.path});
+          item.missing = true;
+        }
+      });
+    });
+  }
+
   cleanupStateMedia();
+  flagInvalidMediaPaths();
   save();
 
   function load(){
@@ -2855,7 +2876,7 @@ portalCtx.restore(); // end circular clip
       if(!img) return;
       const th=document.createElement('div');
       th.className='image-thumb';
-      fetchMediaUrl(img.path||img.src).then(url=>{ th.style.backgroundImage=`url(${url})`; });
+      fetchMediaUrl(img).then(url=>{ th.style.backgroundImage=`url(${url})`; });
       const rm=document.createElement('button');
       rm.className='remove';
       rm.textContent='×';
@@ -2872,7 +2893,7 @@ portalCtx.restore(); // end circular clip
       const th=document.createElement('div');
       th.className='pick-thumb';
       th.dataset.id=img.id;
-      fetchMediaUrl(img.path||img.src).then(url=>{ th.style.backgroundImage=`url(${url})`; });
+      fetchMediaUrl(img).then(url=>{ th.style.backgroundImage=`url(${url})`; });
       if(scImageIds.includes(img.id)) th.classList.add('selected');
       th.onclick=()=>{ const id=img.id; if(scImageIds.includes(id)){ scImageIds=scImageIds.filter(x=>x!==id); th.classList.remove('selected'); } else { scImageIds.push(id); th.classList.add('selected'); } saveScenarioDraft(); };
       scenarioImgGallery.appendChild(th);
@@ -3321,7 +3342,7 @@ portalCtx.restore(); // end circular clip
           if(!img) return;
           const th=document.createElement('div');
           th.className='image-thumb';
-          fetchMediaUrl(img.path||img.src).then(url=>{ th.style.backgroundImage=`url(${url})`; });
+          fetchMediaUrl(img).then(url=>{ th.style.backgroundImage=`url(${url})`; });
           th.onclick=e=>{ e.stopPropagation(); openLightbox(img.path||img.src, img.name||'', img.id, 'image'); };
           strip.appendChild(th);
         });
@@ -3906,29 +3927,32 @@ portalCtx.restore(); // end circular clip
   let currentLightboxType='image';
 
   const mediaCache=new Map();
-  async function fetchMediaUrl(path){
-    if(!path) return '';
+  async function fetchMediaUrl(item){
+    const path = item?.path || item?.src || '';
+    if(!path || item?.missing) return '';
     if(mediaCache.has(path)) return mediaCache.get(path);
     if(path.startsWith('http') || path.startsWith('data:')){
       mediaCache.set(path, path);
       return path;
     }
     try{
-      const blob=await dbxDownload(path);
-      const url=URL.createObjectURL(blob);
-      mediaCache.set(path, url);
-      return url;
+      const url = await dbxGetTemporaryLink(path, item);
+      if(url){
+        mediaCache.set(path, url);
+        return url;
+      }
     }catch(err){
       console.error('Failed to load media', err);
-      return '';
     }
+    if(item) item.missing = true;
+    return '';
   }
 
   async function openLightbox(path, meta, mediaId, type){
     lbMeta.textContent=meta||'';
     currentLightboxMediaId=mediaId;
     currentLightboxType=type;
-    const src=await fetchMediaUrl(path);
+    const src=await fetchMediaUrl({id:mediaId, name:meta, path});
     if(type==='video'){
       lbImg.style.display='none';
       lbVideo.style.display='block';
@@ -4114,7 +4138,7 @@ portalCtx.restore(); // end circular clip
           media.controls = true;
           media.muted = true;
           if (it.poster) media.poster = it.poster;
-          fetchMediaUrl(it.path || it.src).then(url => { media.src = url; });
+          fetchMediaUrl(it).then(url => { media.src = url; });
           // Use lightbox for local videos
           th.onclick = () => openLightbox(
             it.path || it.src,
@@ -4130,7 +4154,7 @@ portalCtx.restore(); // end circular clip
         media.style.objectFit = 'cover';
         th.appendChild(media);
       } else {
-        fetchMediaUrl(it.path || it.src).then(url => {
+        fetchMediaUrl(it).then(url => {
           th.style.backgroundImage = `url(${url})`;
         });
         th.onclick = () => openLightbox(
@@ -5310,20 +5334,23 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
       throw new Error('Dropbox path must point to a file.');
     }
     path = path.trim();
-    if(!path || path === '.'){
+    if(!path){
       throw new Error('Dropbox path must point to a file.');
     }
+    // Strip app prefix if present
     if(!path.startsWith('/')) path = '/' + path;
     path = path.replace(/^\/Apps\/[^/]+/, '');
     if(!path.startsWith('/')) path = '/' + path;
-    if(path === '/' || path.endsWith('/')){
+
+    // Split into segments and validate
+    const segments = path.split('/').filter(Boolean);
+    const invalid = new Set(['.', '..', '...']);
+    if(segments.length === 0 || segments.some(seg => invalid.has(seg))){
       throw new Error('Dropbox path must point to a file.');
     }
-    const name = path.split('/').pop();
-    if(!name || name === '.'){
-      throw new Error('Dropbox path must point to a file.');
-    }
-    return path;
+
+    // Rebuild normalized path without trailing slash
+    return '/' + segments.join('/');
   }
 
   function setSyncStatus(msg, progress){
@@ -5457,13 +5484,18 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
     }
   }
 
-  async function dbxDownloadStream(path){
+  async function dbxDownloadStream(path, item){
     if(!state.sync?.accessToken) {
       throw new Error('No access token available');
     }
     try{
       path = normalizeDropboxPath(path);
     }catch(err){
+      if(item){
+        console.warn('Invalid Dropbox path for media', {id:item.id, name:item.name, path});
+        item.missing = true;
+        return null;
+      }
       alert(err.message + ' Please pick a valid Dropbox file path.');
       throw err;
     }
@@ -5538,16 +5570,60 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
     return bytesRead;
   }
 
-  async function dbxDownload(path){
+  async function dbxDownload(path, item){
     try{
       path = normalizeDropboxPath(path);
     }catch(err){
+      if(item){
+        console.warn('Invalid Dropbox path for media', {id:item.id, name:item.name, path});
+        item.missing = true;
+        return null;
+      }
       alert(err.message + ' Please pick a valid Dropbox file path.');
       throw err;
     }
-    const response = await dbxDownloadStream(path);
+    const response = await dbxDownloadStream(path, item);
+    if(!response) return null;
 
     return response.blob();
+  }
+
+  async function dbxGetTemporaryLink(path, item){
+    if(!state.sync?.accessToken){
+      throw new Error('No access token available');
+    }
+    try{
+      path = normalizeDropboxPath(path);
+    }catch(err){
+      if(item){
+        console.warn('Invalid Dropbox path for media', {id:item.id, name:item.name, path});
+        item.missing = true;
+        return '';
+      }
+      alert(err.message + ' Please pick a valid Dropbox file path.');
+      throw err;
+    }
+    const url = 'https://api.dropboxapi.com/2/files/get_temporary_link';
+    const headers = {
+      'Authorization': `Bearer ${state.sync.accessToken}`,
+      'Content-Type': 'application/json'
+    };
+    const body = JSON.stringify({path});
+    let response = await fetch(url, {method:'POST', headers, body});
+    if(response.status === 401 && await refreshAccessToken()){
+      headers['Authorization'] = `Bearer ${state.sync.accessToken}`;
+      response = await fetch(url, {method:'POST', headers, body});
+    }
+    if(!response.ok){
+      const errorText = await response.text();
+      const err = new Error(`Download failed: ${response.status} - ${errorText}`);
+      err.status = response.status;
+      if(response.status === 401) err.code = 'AuthExpired';
+      else if(response.status === 404) err.code = 'NotFound';
+      throw err;
+    }
+    const data = await response.json();
+    return data.link;
   }
 
   const MEDIA_CHUNK_SIZE = 10 * 1024 * 1024;
@@ -5989,6 +6065,7 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
       rebuildCaches();
       reconnectAudioBindings();
       cleanupStateMedia();
+      flagInvalidMediaPaths();
       state.sync = state.sync || {};
       state.sync.syncMeta = { lastPullFromDropboxAt: now, sourcePath: path, hashes };
       let quota=false;
@@ -6291,6 +6368,7 @@ async function dropboxContentApiCall(endpoint, content, filename, mode = 'overwr
         initActiveLibrary();
         renderLibrarySelector();
         cleanupStateMedia();
+        flagInvalidMediaPaths();
         save();
         renderAll();
         setSyncStatus('Imported local file');
